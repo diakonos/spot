@@ -8,6 +8,8 @@ export const env = createEnv({
 		SERVER_URL: z.url().optional(),
 		WORKOS_API_KEY: z.string(),
 		WORKOS_CLIENT_ID: z.string(),
+		WORKOS_WEBHOOK_SECRET: z.string(),
+		WORKOS_COOKIE_PASSWORD: z.string(),
 	},
 
 	/**

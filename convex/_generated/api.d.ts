@@ -9,8 +9,11 @@
  */
 
 import type * as google from "../google.js";
+import type * as http from "../http.js";
 import type * as places from "../places.js";
 import type * as schedule from "../schedule.js";
+import type * as users from "../users.js";
+import type * as workos_webhooks from "../workos/webhooks.js";
 
 import type {
   ApiFromModules,
@@ -28,8 +31,11 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   google: typeof google;
+  http: typeof http;
   places: typeof places;
   schedule: typeof schedule;
+  users: typeof users;
+  "workos/webhooks": typeof workos_webhooks;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

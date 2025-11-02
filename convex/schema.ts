@@ -4,7 +4,12 @@ import { v } from "convex/values";
 export default defineSchema({
 	users: defineTable({
 		email: v.string(),
-	}).index("by_email", ["email"]),
+		firstName: v.optional(v.string()),
+		lastName: v.optional(v.string()),
+		workosId: v.optional(v.string()),
+	})
+		.index("by_email", ["email"])
+		.index("by_workos_id", ["workosId"]),
 
 	// Canonical per-place snapshot (provider-owned fields only)
 	places: defineTable({
