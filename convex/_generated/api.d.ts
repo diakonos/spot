@@ -11,7 +11,6 @@
 import type * as google from "../google.js";
 import type * as places from "../places.js";
 import type * as schedule from "../schedule.js";
-import type * as todos from "../todos.js";
 
 import type {
   ApiFromModules,
@@ -31,7 +30,6 @@ declare const fullApi: ApiFromModules<{
   google: typeof google;
   places: typeof places;
   schedule: typeof schedule;
-  todos: typeof todos;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

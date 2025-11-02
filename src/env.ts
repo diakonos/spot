@@ -5,6 +5,7 @@ export const env = createEnv({
 	server: {
 		SERVER_URL: z.string().url().optional(),
 		GOOGLE_PLACES_API_KEY: z.string().min(1).optional(),
+		SENTRY_DSN: z.string(),
 	},
 
 	/**
@@ -15,6 +16,7 @@ export const env = createEnv({
 
 	client: {
 		VITE_APP_TITLE: z.string().min(1).optional(),
+		VITE_SENTRY_DSN: z.string(),
 	},
 
 	/**

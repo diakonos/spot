@@ -5,7 +5,9 @@
 - Package manager: pnpm
 - Linter and formatter: Biome
 
-# Guidance
+# Development Guidance
+
+If you need documentation for any integrations or services, see if there are relevant Cursor rules or MCP servers. The Context 7 MCP server can be used to search for documentation.
 
 We use Sentry for watching for errors in our deployed application, as well as for instrumentation of our application.
 
