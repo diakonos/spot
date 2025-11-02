@@ -13,3 +13,5 @@ count.txt
 todos.json
 
 routeTree.gen.ts
+# Local Netlify folder
+.netlify
