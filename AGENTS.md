@@ -11,6 +11,8 @@ If you need documentation for any integrations or services, see if there are rel
 
 We use Sentry for watching for errors in our deployed application, as well as for instrumentation of our application.
 
+Do not create new Markdown files summarizing or documenting your work. You may provide a brief summary as part of the conversation after you complete your work.
+
 ## Error collection
 
 Error collection is automatic and configured in `src/router.tsx`.

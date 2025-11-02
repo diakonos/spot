@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as crawl from "../crawl.js";
 import type * as google from "../google.js";
 import type * as http from "../http.js";
 import type * as places from "../places.js";
@@ -30,6 +31,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  crawl: typeof crawl;
   google: typeof google;
   http: typeof http;
   places: typeof places;

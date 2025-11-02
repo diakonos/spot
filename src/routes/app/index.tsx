@@ -10,14 +10,14 @@ function RouteComponent() {
 	const navigate = useNavigate();
 	return (
 		<div className="relative h-screen w-full">
-			<div className="absolute right-0 left-0 z-10 flex h-full w-full max-w-md items-end justify-center px-4">
-				<SearchBar
-					containerClassName="w-full mb-8"
-					onClick={() => navigate({ to: "/app/search" })}
-				/>
-			</div>
 			<div className="h-full w-full">
 				<MapComponent />
+			</div>
+			<div className="absolute bottom-0 left-0 flex w-full justify-center">
+				<SearchBar
+					containerClassName="w-full mb-8 max-w-md"
+					onClick={() => navigate({ to: "/app/search" })}
+				/>
 			</div>
 		</div>
 	);

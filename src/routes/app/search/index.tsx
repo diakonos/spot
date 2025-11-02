@@ -7,6 +7,7 @@ import {
 	autocompletePlaces,
 	searchPlacesByText,
 } from "../../../integrations/google/client";
+import { isProbablyUrl } from "../../../lib/utils";
 
 export const Route = createFileRoute("/app/search/")({
 	component: RouteComponent,
@@ -85,17 +86,29 @@ function RouteComponent() {
 		if (!trimmed) {
 			return;
 		}
-		setIsLoading(true);
-		setError(null);
-		try {
-			const res = await searchPlacesByText(trimmed);
-			setResults(res.results ?? []);
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Search failed");
-		} finally {
-			setIsLoading(false);
+
+		// Check if input is a URL
+		if (isProbablyUrl(trimmed)) {
+			// Navigate immediately to manual entry route with URL parameter
+			// The manual page will handle the crawling and progressive loading
+			navigate({
+				to: "/app/place/manual" as const,
+				search: { url: trimmed },
+			});
+		} else {
+			// Handle regular Google text search
+			setIsLoading(true);
+			setError(null);
+			try {
+				const res = await searchPlacesByText(trimmed);
+				setResults(res.results ?? []);
+			} catch (e) {
+				setError(e instanceof Error ? e.message : "Search failed");
+			} finally {
+				setIsLoading(false);
+			}
 		}
-	}, [input]);
+	}, [input, navigate]);
 
 	return (
 		<div className="relative h-screen w-full">
