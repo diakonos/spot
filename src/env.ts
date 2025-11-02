@@ -3,9 +3,11 @@ import { z } from "zod";
 
 export const env = createEnv({
 	server: {
-		SERVER_URL: z.string().url().optional(),
 		GOOGLE_PLACES_API_KEY: z.string().min(1).optional(),
-		SENTRY_DSN: z.string(),
+		SENTRY_DSN: z.url(),
+		SERVER_URL: z.url().optional(),
+		WORKOS_API_KEY: z.string(),
+		WORKOS_CLIENT_ID: z.string(),
 	},
 
 	/**
@@ -16,7 +18,7 @@ export const env = createEnv({
 
 	client: {
 		VITE_APP_TITLE: z.string().min(1).optional(),
-		VITE_SENTRY_DSN: z.string(),
+		VITE_SENTRY_DSN: z.url(),
 	},
 
 	/**

@@ -1,7 +1,7 @@
 // biome-ignore lint/performance/noNamespaceImport: Implemented according to documentation
 import * as Sentry from "@sentry/tanstackstart-react";
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import {
 	createRootRoute,
@@ -11,18 +11,8 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { LayoutGroup } from "framer-motion";
-import ConvexProvider from "../integrations/convex/provider";
-import WorkOSProvider from "../integrations/workos/provider";
-import { QUERY_STALE_TIME_MS } from "../lib/networking";
-import appCss from "../styles.css?url";
 
-const queryClient = new QueryClient({
-	defaultOptions: {
-		queries: {
-			staleTime: QUERY_STALE_TIME_MS,
-		},
-	},
-});
+import appCss from "../styles.css?url";
 
 export const Route = Sentry.wrapCreateRootRouteWithSentry(createRootRoute)({
 	head: () => ({
@@ -59,30 +49,24 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<QueryClientProvider client={queryClient}>
-					<ConvexProvider>
-						<WorkOSProvider>
-							<LayoutGroup>
-								<div key={location.pathname}>{children}</div>
-							</LayoutGroup>
-							<TanStackDevtools
-								config={{
-									position: "bottom-right",
-								}}
-								plugins={[
-									{
-										name: "Tanstack Router",
-										render: <TanStackRouterDevtoolsPanel />,
-									},
-									{
-										name: "React Query",
-										render: <ReactQueryDevtoolsPanel />,
-									},
-								]}
-							/>
-						</WorkOSProvider>
-					</ConvexProvider>
-				</QueryClientProvider>
+				<LayoutGroup>
+					<div key={location.pathname}>{children}</div>
+				</LayoutGroup>
+				<TanStackDevtools
+					config={{
+						position: "bottom-right",
+					}}
+					plugins={[
+						{
+							name: "Tanstack Router",
+							render: <TanStackRouterDevtoolsPanel />,
+						},
+						{
+							name: "React Query",
+							render: <ReactQueryDevtoolsPanel />,
+						},
+					]}
+				/>
 				<Scripts />
 			</body>
 		</html>
