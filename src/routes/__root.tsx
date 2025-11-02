@@ -1,3 +1,5 @@
+// biome-ignore lint/performance/noNamespaceImport: Implemented according to documentation
+import * as Sentry from "@sentry/tanstackstart-react";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
@@ -22,7 +24,7 @@ const queryClient = new QueryClient({
 	},
 });
 
-export const Route = createRootRoute({
+export const Route = Sentry.wrapCreateRootRouteWithSentry(createRootRoute)({
 	head: () => ({
 		meta: [
 			{
