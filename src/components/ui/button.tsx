@@ -9,7 +9,8 @@ const buttonVariants = cva(
 	{
 		variants: {
 			variant: {
-				default: "bg-primary text-primary-foreground hover:bg-primary/90",
+				default:
+					"bg-linear-to-br from-stone-800 to-stone-900 text-primary-foreground hover:from-stone-900",
 				destructive:
 					"bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
 				outline:
@@ -19,7 +20,7 @@ const buttonVariants = cva(
 				ghost:
 					"hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
 				link: "text-primary underline-offset-4 hover:underline",
-				inputStyle: "bg-white hover:bg-gray-50",
+				inputStyle: "bg-linear-to-br from-white to-gray-50 hover:bg-gray-50",
 				primary:
 					"bg-linear-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600",
 			},

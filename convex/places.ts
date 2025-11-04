@@ -243,6 +243,36 @@ export const listSavedPlaces = query({
 	},
 });
 
+export const listSavedPlacesForCurrentUser = query({
+	args: {},
+	handler: async (ctx) => {
+		const identity = await ctx.auth.getUserIdentity();
+		if (!identity) {
+			return [];
+		}
+
+		// Find user by workosId
+		const user = await ctx.db
+			.query("users")
+			.withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
+			.first();
+
+		if (!user) {
+			return [];
+		}
+
+		const saves = await ctx.db
+			.query("saved_places")
+			.withIndex("by_user", (q) => q.eq("userId", user._id))
+			.collect();
+		const places = await Promise.all(saves.map((s) => ctx.db.get(s.placeId)));
+		return saves.map((s, i) => ({
+			save: s,
+			place: places[i],
+		}));
+	},
+});
+
 export const updateSavedPlace = mutation({
 	args: {
 		id: v.id("saved_places"),

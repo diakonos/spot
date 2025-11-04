@@ -124,11 +124,11 @@ function RouteComponent() {
 			<div className="flex w-full justify-center gap-2 px-4 pt-4 pb-2 backdrop-blur">
 				<button
 					aria-label="Go back"
-					className="flex items-center justify-center rounded-full border-muted/50 bg-background/95 px-3 shadow-lg backdrop-blur-sm transition-all duration-200 ease-in-out hover:bg-background hover:ring-2 hover:ring-ring/20 active:ring-2 active:ring-ring/20"
+					className="flex h-12 w-12 shrink-0 grow-0 items-center justify-center rounded-full border-muted/50 bg-background/95 shadow-lg backdrop-blur-sm transition-all duration-200 ease-in-out hover:bg-background hover:ring-2 hover:ring-ring/20 active:ring-2 active:ring-ring/20"
 					onClick={() => navigate({ to: "/app" })}
 					type="button"
 				>
-					<ChevronLeft className="h-5 w-5 text-foreground md:hidden" />
+					<ChevronLeft className="h-6 w-6 text-foreground md:hidden" />
 					<span className="hidden items-center gap-2 md:flex">
 						<ChevronLeft className="h-5 w-5 text-foreground" />
 						<span className="font-medium text-sm">Back</span>

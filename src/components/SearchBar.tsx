@@ -29,8 +29,6 @@ export function SearchBar({
 						? "ring-ring/20"
 						: ""
 			} ${containerClassName}`}
-			layoutId="searchbar"
-			transition={{ layout: { duration: 0.5 } }}
 		>
 			<SearchIcon className="h-4 w-4 text-muted-foreground" />
 			<Input

@@ -39,11 +39,15 @@ function RouteComponent() {
 					</motion.div>
 				</Link>
 				<Button className="shadow-lg" variant="primary">
-					<SparklesIcon className="h-8 w-8" /> Save a new spot from link
+					<SparklesIcon className="h-8 w-8" /> Save new spot from link
 				</Button>
-				<Button>
-					<ListIcon className="h-8 w-8" /> View all my spots
-				</Button>
+				<Link to="/app/my-spots">
+					<motion.div layoutId="my-spots">
+						<Button className="w-full">
+							<ListIcon className="h-8 w-8" /> View all my spots
+						</Button>
+					</motion.div>
+				</Link>
 			</div>
 		</div>
 	);
