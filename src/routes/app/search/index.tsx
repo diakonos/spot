@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { SearchBar } from "../../../components/SearchBar";
+import MapComponent from "@/components/Map";
+import { SearchBar } from "@/components/SearchBar";
 import {
 	autocompletePlaces,
 	searchPlacesByText,
@@ -112,6 +114,13 @@ function RouteComponent() {
 
 	return (
 		<div className="relative h-screen w-full">
+			<motion.div
+				animate={{ opacity: 0.3 }}
+				className="pointer-events-none absolute top-0 left-0 h-full w-full"
+				layoutId="map"
+			>
+				<MapComponent />
+			</motion.div>
 			<div className="flex w-full justify-center gap-2 px-4 pt-4 pb-2 backdrop-blur">
 				<button
 					aria-label="Go back"
@@ -126,19 +135,22 @@ function RouteComponent() {
 					</span>
 				</button>
 				<div className="relative w-full max-w-md">
-					<SearchBar
-						autoFocus
-						containerClassName="w-full"
-						onChange={(e) => setInput(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") {
-								e.preventDefault();
-								runSearch();
-							}
-						}}
-						value={input}
-						// onBlur={() => navigate({ to: '/app' })}
-					/>
+					<motion.div layoutId="searchbar">
+						<SearchBar
+							autoFocus
+							containerClassName="w-full"
+							onChange={(e) => setInput(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.preventDefault();
+									runSearch();
+								}
+							}}
+							value={input}
+							// onBlur={() => navigate({ to: '/app' })}
+						/>
+					</motion.div>
+
 					{/* Autocomplete suggestions dropdown */}
 					{input.length > 0 &&
 						!isLoading &&

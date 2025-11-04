@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { SearchIcon } from "lucide-react";
 import { useState } from "react";
 import { isProbablyUrl } from "../lib/utils";
@@ -20,7 +19,7 @@ export function SearchBar({
 		typeof props.value === "string" && isProbablyUrl(props.value);
 
 	return (
-		<motion.div
+		<div
 			className={`flex items-center rounded-full border-muted/50 px-4 shadow-lg backdrop-blur-sm transition-all duration-200 ease-in-out ${
 				isUrlMode ? "bg-blue-50/60 dark:bg-blue-950/20" : "bg-background/95"
 			} ${isFocused ? "ring-2" : ""} ${
@@ -44,10 +43,10 @@ export function SearchBar({
 					setIsFocused(true);
 					onFocus?.(e);
 				}}
-				placeholder="Search or paste a link"
+				placeholder="Search for spots"
 				type="search"
 				{...props}
 			/>
-		</motion.div>
+		</div>
 	);
 }
