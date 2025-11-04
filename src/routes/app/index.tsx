@@ -43,7 +43,7 @@ function RouteComponent() {
 				</Button>
 				<Link to="/app/my-spots">
 					<motion.div layoutId="my-spots">
-						<Button className="w-full">
+						<Button className="w-full shadow-lg">
 							<ListIcon className="h-8 w-8" /> View all my spots
 						</Button>
 					</motion.div>
