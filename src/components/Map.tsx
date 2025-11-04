@@ -11,12 +11,14 @@ import OSM from "ol/source/OSM";
 import { Circle, Fill, Stroke, Style } from "ol/style";
 import { useEffect, useRef, useState } from "react";
 
+const washdcLongLat = [-77.0369, 38.9072];
+
 export default function MapComponent() {
 	const mapRef = useRef<HTMLDivElement>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	// Default to Washington DC coordinates
-	const defaultCenter = fromLonLat([-77.0369, 38.9072]);
+	const defaultCenter = fromLonLat(washdcLongLat);
 
 	useEffect(() => {
 		// Initialize the map
@@ -47,7 +49,7 @@ export default function MapComponent() {
 
 					// Update the view to center on user's location
 					initialMap.getView().setCenter(userLocation);
-					initialMap.getView().setZoom(15);
+					initialMap.getView().setZoom(17);
 
 					// Add a marker for the user's location
 					const marker = new Feature({

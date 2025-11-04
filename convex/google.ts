@@ -1,3 +1,5 @@
+"use node";
+
 import { v } from "convex/values";
 import type { GooglePlaceDetailsResponse } from "../src/integrations/google/types";
 import { action } from "./_generated/server";
@@ -38,7 +40,13 @@ export const fetchPlaceDetails = action({
 				languageCode: v.string(),
 			})
 		),
-		businessStatus: v.optional(v.string()),
+		businessStatus: v.optional(
+			v.union(
+				v.literal("OPERATIONAL"),
+				v.literal("CLOSED_TEMPORARILY"),
+				v.literal("CLOSED_PERMANENTLY")
+			)
+		),
 		internationalPhoneNumber: v.optional(v.string()),
 		nationalPhoneNumber: v.optional(v.string()),
 		websiteUri: v.optional(v.string()),
@@ -93,7 +101,6 @@ export const fetchPlaceDetails = action({
 			})
 		),
 		rating: v.optional(v.number()),
-		lastSyncedAt: v.number(),
 		raw: v.record(v.string(), v.any()),
 	}),
 	handler: async (_ctx, { placeId }) => {
@@ -127,55 +134,109 @@ export const fetchPlaceDetails = action({
 					"X-Goog-Api-Key": apiKey,
 					"X-Goog-FieldMask": fieldMask,
 				},
+				referrer: "https://rightful-schnauzer-365.convex.site",
 			}
 		);
-
 		if (!res.ok) {
-			const text = await res.text();
-			throw new Error(
-				`Google Places Details API request failed: ${res.status} - ${text}`
-			);
+			console.error(`[${res.status}] ${res.statusText}`);
+			console.error(await res.text());
+			throw new Error("Google Places Details API request failed.");
 		}
-
-		const json = (await res.json()) as GooglePlaceDetailsResponse;
+		const place = (await res.json()) as GooglePlaceDetailsResponse;
+		console.debug("Google place:", place);
 
 		return {
 			provider: "google" as const,
-			providerPlaceId: json.id,
-			name: json.displayName?.text ?? "",
-			displayName: json.displayName
+			providerPlaceId: placeId,
+			name: place.displayName?.text ?? "",
+			displayName: place.displayName?.text
 				? {
-						text: json.displayName.text,
-						languageCode: json.displayName.languageCode ?? "en-US",
+						text: place.displayName.text,
+						languageCode: place.displayName.languageCode ?? "en-US",
 					}
 				: undefined,
-			formattedAddress: json.formattedAddress,
-			addressComponents: json.addressComponents?.map((c) => ({
-				longText: c.longText,
-				shortText: c.shortText,
-				types: c.types,
-				languageCode: c.languageCode ?? "en-US",
+			formattedAddress: place.formattedAddress ?? undefined,
+			addressComponents: place.addressComponents
+				?.filter((c) => !!c.longText)
+				.map((c) => ({
+					longText: c.longText!,
+					shortText: c.shortText ?? undefined,
+					types: c.types ?? [],
+					languageCode: c.languageCode ?? "en-US",
+				})),
+			location:
+				place.location?.latitude && place.location?.longitude
+					? { lat: place.location.latitude, lng: place.location.longitude }
+					: undefined,
+			primaryType: place.primaryType ?? undefined,
+			primaryTypeDisplayName: place.primaryTypeDisplayName?.text
+				? {
+						text: place.primaryTypeDisplayName.text,
+						languageCode: place.primaryTypeDisplayName.languageCode ?? "en-US",
+					}
+				: undefined,
+			businessStatus:
+				place.businessStatus === "OPERATIONAL" ||
+				place.businessStatus === "CLOSED_TEMPORARILY" ||
+				place.businessStatus === "CLOSED_PERMANENTLY"
+					? place.businessStatus
+					: undefined,
+			internationalPhoneNumber: place.internationalPhoneNumber ?? undefined,
+			nationalPhoneNumber: place.nationalPhoneNumber ?? undefined,
+			websiteUri: place.websiteUri ?? undefined,
+			googleMapsUri: place.googleMapsUri ?? undefined,
+			photos: place.photos?.map((p) => ({
+				name: p.name ?? "",
+				widthPx: p.widthPx ?? 0,
+				heightPx: p.heightPx ?? 0,
 			})),
-			location: json.location
-				? { lat: json.location.latitude, lng: json.location.longitude }
-				: undefined,
-			primaryType: json.primaryType,
-			primaryTypeDisplayName: json.primaryTypeDisplayName
+			regularOpeningHours: place.regularOpeningHours
 				? {
-						text: json.primaryTypeDisplayName.text,
-						languageCode: json.primaryTypeDisplayName.languageCode ?? "en-US",
+						openNow: place.regularOpeningHours.openNow ?? undefined,
+						weekdayDescriptions:
+							place.regularOpeningHours.weekdayDescriptions ?? undefined,
+						periods: place.regularOpeningHours.periods?.map((p) => ({
+							open:
+								p.open?.day && p.open.hour && p.open.minute
+									? {
+											day: p.open.day!,
+											hour: p.open.hour!,
+											minute: p.open.minute!,
+											date:
+												p.open.date?.day &&
+												p.open.date.year &&
+												p.open.date.month
+													? {
+															year: p.open.date.year!,
+															month: p.open.date.month!,
+															day: p.open.date.day!,
+														}
+													: undefined,
+										}
+									: undefined,
+							close:
+								p.close?.day && p.close.hour && p.close.minute
+									? {
+											day: p.close.day!,
+											hour: p.close.hour!,
+											minute: p.close.minute!,
+											date:
+												p.close.date?.day &&
+												p.close.date.year &&
+												p.close.date.month
+													? {
+															year: p.close.date.year!,
+															month: p.close.date.month!,
+															day: p.close.date.day!,
+														}
+													: undefined,
+										}
+									: undefined,
+						})),
 					}
 				: undefined,
-			businessStatus: json.businessStatus,
-			internationalPhoneNumber: json.internationalPhoneNumber,
-			nationalPhoneNumber: json.nationalPhoneNumber,
-			websiteUri: json.websiteUri,
-			googleMapsUri: json.googleMapsUri,
-			photos: json.photos,
-			regularOpeningHours: json.regularOpeningHours,
-			rating: json.rating,
-			lastSyncedAt: Date.now(),
-			raw: json,
+			rating: place.rating ?? undefined,
+			raw: place,
 		};
 	},
 });

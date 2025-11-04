@@ -44,7 +44,7 @@ export function SearchBar({
 					setIsFocused(true);
 					onFocus?.(e);
 				}}
-				placeholder="Search..."
+				placeholder="Search or paste a link"
 				type="search"
 				{...props}
 			/>

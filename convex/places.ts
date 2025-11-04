@@ -1,7 +1,13 @@
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import {
+	action,
+	internalMutation,
+	internalQuery,
+	mutation,
+	query,
+} from "./_generated/server";
 
 /**
  * Internal mutation to upsert a place in the database.
@@ -255,5 +261,306 @@ export const removeSavedPlace = mutation({
 	handler: async (ctx, { id }) => {
 		await ctx.db.delete(id);
 		return null;
+	},
+});
+
+// 24 hours in milliseconds
+const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Helper function to convert Convex place document to PlaceDetailsResponse format
+ */
+function convertPlaceToPlaceDetailsResponse(place: {
+	_id: Id<"places">;
+	providerPlaceId: string;
+	name: string;
+	formattedAddress?: string;
+	location?: { lat: number; lng: number };
+	rating?: number;
+	photos?: Array<{ name: string; widthPx: number; heightPx: number }>;
+	websiteUri?: string;
+	internationalPhoneNumber?: string;
+	googleMapsUri?: string;
+	regularOpeningHours?: {
+		openNow?: boolean;
+	};
+	raw?: Record<string, unknown>;
+}): {
+	id: string;
+	name: string;
+	formatted_address?: string;
+	location?: { lat: number; lng: number };
+	rating?: number;
+	user_ratings_total?: number;
+	open_now?: boolean;
+	photos?: Array<{ name: string; widthPx: number; heightPx: number }>;
+	website?: string;
+	phone?: string;
+	google_maps_uri?: string;
+} {
+	return {
+		id: place.providerPlaceId,
+		name: place.name,
+		formatted_address: place.formattedAddress,
+		location: place.location,
+		rating: place.rating,
+		user_ratings_total:
+			typeof place.raw?.userRatingCount === "number"
+				? place.raw.userRatingCount
+				: undefined,
+		open_now: place.regularOpeningHours?.openNow,
+		photos: place.photos,
+		website: place.websiteUri,
+		phone: place.internationalPhoneNumber,
+		google_maps_uri: place.googleMapsUri,
+	};
+}
+
+/**
+ * Action to revalidate a place by fetching fresh data from Google.
+ * Called automatically by the query when stale data is detected.
+ */
+export const revalidateGooglePlace = action({
+	args: { providerPlaceId: v.string() },
+	returns: v.null(),
+	handler: async (ctx, { providerPlaceId }) => {
+		// Fetch fresh data from Google and upsert
+		await ctx.runAction(api.places.upsertPlaceFromGoogle, {
+			providerPlaceId,
+		});
+
+		return null;
+	},
+});
+
+/**
+ * Internal query to get a place by provider ID.
+ * Used by revalidation action.
+ */
+export const getPlaceByProviderId = internalQuery({
+	args: { providerPlaceId: v.string() },
+	returns: v.union(
+		v.null(),
+		v.object({
+			_id: v.id("places"),
+			lastSyncedAt: v.number(),
+		})
+	),
+	handler: async (ctx, { providerPlaceId }) => {
+		const place = await ctx.db
+			.query("places")
+			.withIndex("by_provider_id", (q) =>
+				q.eq("provider", "google").eq("providerPlaceId", providerPlaceId)
+			)
+			.first();
+
+		if (!place) {
+			return null;
+		}
+
+		return {
+			_id: place._id,
+			lastSyncedAt: place.lastSyncedAt,
+		};
+	},
+});
+
+/**
+ * Query to get place details with save status.
+ * Automatically triggers revalidation if data is stale (≥24 hours old).
+ * Returns null if place doesn't exist in database (client should fallback to Google API).
+ */
+export const getPlaceDetailsWithSaveStatus = query({
+	args: { providerPlaceId: v.string() },
+	returns: v.union(
+		v.null(),
+		v.object({
+			place: v.object({
+				id: v.string(),
+				name: v.string(),
+				formatted_address: v.optional(v.string()),
+				location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+				rating: v.optional(v.number()),
+				user_ratings_total: v.optional(v.number()),
+				open_now: v.optional(v.boolean()),
+				photos: v.optional(
+					v.array(
+						v.object({
+							name: v.string(),
+							widthPx: v.number(),
+							heightPx: v.number(),
+						})
+					)
+				),
+				website: v.optional(v.string()),
+				phone: v.optional(v.string()),
+				google_maps_uri: v.optional(v.string()),
+			}),
+			lastSyncedAt: v.number(),
+			isSaved: v.boolean(),
+		})
+	),
+	handler: async (ctx, { providerPlaceId }) => {
+		// Get the place from database
+		const place = await ctx.db
+			.query("places")
+			.withIndex("by_provider_id", (q) =>
+				q.eq("provider", "google").eq("providerPlaceId", providerPlaceId)
+			)
+			.first();
+
+		// Return null if place doesn't exist (client will fallback to Google API)
+		if (!place) {
+			return null;
+		}
+
+		// Check if current user has saved this place
+		const identity = await ctx.auth.getUserIdentity();
+		let isSaved = false;
+
+		if (identity) {
+			// Find user by workosId (from token subject)
+			const user = await ctx.db
+				.query("users")
+				.withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
+				.first();
+
+			if (user) {
+				const savedPlace = await ctx.db
+					.query("saved_places")
+					.withIndex("by_user_place", (q) =>
+						q.eq("userId", user._id).eq("placeId", place._id)
+					)
+					.first();
+				isSaved = !!savedPlace;
+			}
+		}
+
+		// Convert to PlaceDetailsResponse format
+		const placeResponse = convertPlaceToPlaceDetailsResponse(place);
+
+		return {
+			place: placeResponse,
+			lastSyncedAt: place.lastSyncedAt,
+			isSaved,
+		};
+	},
+});
+
+export const revalidatePlace = mutation({
+	args: { providerPlaceId: v.string() },
+	returns: v.null(),
+	handler: async (ctx, { providerPlaceId }) => {
+		const place = await ctx.db
+			.query("places")
+			.withIndex("by_provider_id", (q) =>
+				q.eq("provider", "google").eq("providerPlaceId", providerPlaceId)
+			)
+			.first();
+
+		if (!place) {
+			console.warn(`Place ${providerPlaceId} not found`);
+			return null;
+		}
+
+		// Check if data is stale and trigger revalidation in background
+		const now = Date.now();
+		const isStale = now - place.lastSyncedAt >= STALE_THRESHOLD_MS;
+
+		if (isStale) {
+			await ctx.scheduler.runAfter(0, api.places.revalidateGooglePlace, {
+				providerPlaceId,
+			});
+		}
+	},
+});
+
+/**
+ * Mutation to save a place for the current authenticated user.
+ * If the place doesn't exist in the database, it will be created from the provided data.
+ */
+export const savePlaceForCurrentUser = mutation({
+	args: {
+		// Place data from Google API (may be partial)
+		providerPlaceId: v.string(),
+		name: v.string(),
+		displayName: v.optional(
+			v.object({ text: v.string(), languageCode: v.optional(v.string()) })
+		),
+		formattedAddress: v.optional(v.string()),
+		location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+		rating: v.optional(v.number()),
+		// User-specific data
+		tags: v.optional(v.array(v.string())),
+		myRating: v.optional(v.number()),
+		note: v.optional(v.string()),
+	},
+	returns: v.id("saved_places"),
+	handler: async (ctx, args) => {
+		const identity = await ctx.auth.getUserIdentity();
+		if (!identity) {
+			throw new Error("Not authenticated");
+		}
+
+		// Find user by workosId
+		const user = await ctx.db
+			.query("users")
+			.withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
+			.first();
+
+		if (!user) {
+			throw new Error("User not found");
+		}
+
+		// Check if place exists, if not create it
+		const existingPlace = await ctx.db
+			.query("places")
+			.withIndex("by_provider_id", (q) =>
+				q.eq("provider", "google").eq("providerPlaceId", args.providerPlaceId)
+			)
+			.first();
+
+		let placeId: Id<"places">;
+		if (existingPlace) {
+			placeId = existingPlace._id;
+		} else {
+			// Create place with provided data
+			const placeData = {
+				provider: "google" as const,
+				providerPlaceId: args.providerPlaceId,
+				name: args.name,
+				displayName: args.displayName,
+				formattedAddress: args.formattedAddress,
+				location: args.location,
+				rating: args.rating,
+				lastSyncedAt: Date.now(),
+			};
+			placeId = await ctx.db.insert("places", placeData);
+
+			// Schedule background action to fetch canonical data from Google
+			await ctx.scheduler.runAfter(0, api.places.syncPlaceFromGoogle, {
+				providerPlaceId: args.providerPlaceId,
+			});
+		}
+
+		// Save the place for the user
+		const existingSave = await ctx.db
+			.query("saved_places")
+			.withIndex("by_user_place", (q) =>
+				q.eq("userId", user._id).eq("placeId", placeId)
+			)
+			.first();
+
+		if (existingSave) {
+			return existingSave._id;
+		}
+
+		return await ctx.db.insert("saved_places", {
+			userId: user._id,
+			placeId,
+			tags: args.tags ?? [],
+			myRating: args.myRating,
+			note: args.note,
+		});
 	},
 });

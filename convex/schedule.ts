@@ -54,11 +54,11 @@ export const syncSavedPlaces = internalAction({
 const crons = cronJobs();
 
 // Run nightly sync at 4am UTC
-crons.cron(
-	"nightlySyncSavedPlaces",
-	"0 4 * * *", // 4am UTC
-	internal.schedule.syncSavedPlaces,
-	{}
-);
+// crons.cron(
+// 	"nightlySyncSavedPlaces",
+// 	"0 4 * * *", // 4am UTC
+// 	internal.schedule.syncSavedPlaces,
+// 	{}
+// );
 
 export default crons;

@@ -38,6 +38,9 @@
             "maxAllowedComplexity": 30
           }
         }
+      },
+      "style": {
+        "noMagicNumbers": "off"
       }
     }
   },

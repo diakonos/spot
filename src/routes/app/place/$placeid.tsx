@@ -1,7 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Globe, MapPin, Phone } from "lucide-react";
+import { useQuery as useConvexQuery, useMutation } from "convex/react";
+import {
+	ArrowLeft,
+	Bookmark,
+	ExternalLink,
+	Globe,
+	MapPin,
+	Phone,
+} from "lucide-react";
+import { useState } from "react";
+import { api } from "../../../../convex/_generated/api";
 import { getPlaceDetails } from "../../../integrations/google/client";
+import type { PlaceDetailsResponse } from "../../../integrations/google/types";
 import { QUERY_STALE_TIME_MS } from "../../../lib/networking";
 
 export const Route = createFileRoute("/app/place/$placeid")({
@@ -11,19 +22,68 @@ export const Route = createFileRoute("/app/place/$placeid")({
 function PlaceDetailsComponent() {
 	const navigate = useNavigate();
 	const { placeid } = Route.useParams();
+	const [saveError, setSaveError] = useState<string | null>(null);
+	const [isSaving, setIsSaving] = useState(false);
 
+	// Try to get place from Convex first
+	const convexPlaceData = useConvexQuery(
+		api.places.getPlaceDetailsWithSaveStatus,
+		placeid ? { providerPlaceId: placeid } : "skip"
+	);
+
+	// Determine which data source to use
+	const placeDetails: PlaceDetailsResponse | null | undefined =
+		convexPlaceData?.place ?? null;
+	const isSaved = convexPlaceData?.isSaved ?? false;
+
+	// Fallback to Google API if Convex doesn't have the place
 	const {
-		data: placeDetails,
-		isLoading,
-		error,
+		data: googlePlaceData,
+		isLoading: isLoadingGoogle,
+		error: googleError,
 	} = useQuery({
 		queryKey: ["places", "details", placeid],
 		queryFn: async () => {
-			const res = await getPlaceDetails(placeid);
-			return res;
+			if (!placeid) {
+				throw new Error("placeid is required");
+			}
+			return await getPlaceDetails(placeid);
 		},
+		enabled: convexPlaceData === null && !!placeid,
 		staleTime: QUERY_STALE_TIME_MS,
 	});
+
+	const finalPlaceDetails = placeDetails ?? googlePlaceData ?? null;
+	const isLoading =
+		convexPlaceData === undefined ||
+		(convexPlaceData === null && isLoadingGoogle);
+	const error = googleError;
+
+	// Save mutation
+	const savePlace = useMutation(api.places.savePlaceForCurrentUser);
+
+	const handleSave = async () => {
+		if (!finalPlaceDetails || isSaved || isSaving) {
+			return;
+		}
+
+		setIsSaving(true);
+		setSaveError(null);
+
+		try {
+			await savePlace({
+				providerPlaceId: placeid,
+				name: finalPlaceDetails.name,
+				formattedAddress: finalPlaceDetails.formatted_address,
+				location: finalPlaceDetails.location,
+				rating: finalPlaceDetails.rating,
+			});
+		} catch (err) {
+			setSaveError(err instanceof Error ? err.message : "Failed to save place");
+		} finally {
+			setIsSaving(false);
+		}
+	};
 
 	return (
 		<div className="h-screen w-full overflow-y-auto">
@@ -36,7 +96,7 @@ function PlaceDetailsComponent() {
 				>
 					<ArrowLeft className="h-5 w-5" />
 				</button>
-				<h1 className="font-semibold text-lg">Place Details</h1>
+				<p className="font-semibold text-lg">Back to search</p>
 			</div>
 
 			<div className="px-4 py-6">
@@ -54,75 +114,107 @@ function PlaceDetailsComponent() {
 					</div>
 				)}
 
-				{placeDetails && (
+				{finalPlaceDetails && (
 					<div className="space-y-6">
-						{/* Name */}
+						{/* Name and Save Button */}
 						<div>
-							<h2 className="font-bold text-2xl">{placeDetails.name}</h2>
-							{placeDetails.formatted_address && (
-								<div className="mt-2 flex items-start gap-2 text-muted-foreground">
-									<MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-									<span className="text-sm">
-										{placeDetails.formatted_address}
-									</span>
+							<div className="flex items-start justify-between gap-4">
+								<div className="flex-1">
+									<h2 className="font-bold text-2xl">
+										{finalPlaceDetails.name}
+									</h2>
+									{finalPlaceDetails.formatted_address && (
+										<div className="mt-2 flex items-start gap-2 text-muted-foreground">
+											<MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+											<span className="text-sm">
+												{finalPlaceDetails.formatted_address}
+											</span>
+										</div>
+									)}
 								</div>
+								{!isSaved && (
+									<button
+										aria-label="Save place"
+										className="flex items-center gap-2 rounded-lg border bg-background px-4 py-2 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+										disabled={isSaving}
+										onClick={handleSave}
+										type="button"
+									>
+										<Bookmark className="h-4 w-4" />
+										<span className="font-medium text-sm">
+											{isSaving ? "Saving..." : "Save"}
+										</span>
+									</button>
+								)}
+								{isSaved && (
+									<div className="flex items-center gap-2 rounded-lg border bg-muted px-4 py-2">
+										<Bookmark className="h-4 w-4 fill-current" />
+										<span className="font-medium text-sm">Saved</span>
+									</div>
+								)}
+							</div>
+							{saveError && (
+								<div className="mt-2 text-red-500 text-sm">{saveError}</div>
 							)}
 						</div>
 
 						{/* Rating */}
-						{placeDetails.rating !== undefined && (
+						{finalPlaceDetails.rating !== undefined && (
 							<div className="flex items-center gap-2">
 								<span className="font-semibold text-lg">
-									{placeDetails.rating.toFixed(1)}
+									{finalPlaceDetails.rating.toFixed(1)}
 								</span>
 								<span className="text-muted-foreground">⭐</span>
-								{placeDetails.user_ratings_total !== undefined && (
+								{finalPlaceDetails.user_ratings_total !== undefined && (
 									<span className="text-muted-foreground text-sm">
-										({placeDetails.user_ratings_total.toLocaleString()} reviews)
+										({finalPlaceDetails.user_ratings_total.toLocaleString()}{" "}
+										reviews)
 									</span>
 								)}
 							</div>
 						)}
 
 						{/* Open Now */}
-						{placeDetails.open_now !== undefined && (
+						{finalPlaceDetails.open_now !== undefined && (
 							<div
 								className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-medium text-sm ${
-									placeDetails.open_now
+									finalPlaceDetails.open_now
 										? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
 										: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
 								}`}
 							>
 								<span
 									className={`h-2 w-2 rounded-full ${
-										placeDetails.open_now ? "bg-green-600" : "bg-red-600"
+										finalPlaceDetails.open_now ? "bg-green-600" : "bg-red-600"
 									}`}
 								/>
-								{placeDetails.open_now ? "Open Now" : "Closed"}
+								{finalPlaceDetails.open_now ? "Open Now" : "Closed"}
 							</div>
 						)}
 
 						{/* Contact Information */}
-						{(placeDetails.phone || placeDetails.website) && (
+						{(finalPlaceDetails.phone || finalPlaceDetails.website) && (
 							<div className="space-y-3">
-								{placeDetails.phone && (
+								{finalPlaceDetails.phone && (
 									<a
 										className="flex items-center gap-3 text-primary hover:underline"
-										href={`tel:${placeDetails.phone}`}
+										href={`tel:${finalPlaceDetails.phone}`}
 									>
 										<Phone className="h-5 w-5" />
-										<span>{placeDetails.phone}</span>
+										<span>{finalPlaceDetails.phone}</span>
 									</a>
 								)}
-								{placeDetails.website && (
+								{finalPlaceDetails.website && (
 									<a
 										className="flex items-center gap-3 text-primary hover:underline"
-										href={placeDetails.website}
+										href={finalPlaceDetails.website}
 										rel="noopener noreferrer"
 										target="_blank"
 									>
 										<Globe className="h-5 w-5" />
-										<span className="truncate">{placeDetails.website}</span>
+										<span className="truncate">
+											{finalPlaceDetails.website}
+										</span>
 										<ExternalLink className="h-4 w-4 shrink-0" />
 									</a>
 								)}
@@ -130,10 +222,10 @@ function PlaceDetailsComponent() {
 						)}
 
 						{/* Google Maps Link */}
-						{placeDetails.google_maps_uri && (
+						{finalPlaceDetails.google_maps_uri && (
 							<a
 								className="flex items-center justify-center gap-2 rounded-lg border bg-background px-4 py-3 transition-colors hover:bg-muted"
-								href={placeDetails.google_maps_uri}
+								href={finalPlaceDetails.google_maps_uri}
 								rel="noopener noreferrer"
 								target="_blank"
 							>
@@ -144,18 +236,19 @@ function PlaceDetailsComponent() {
 						)}
 
 						{/* Photos */}
-						{placeDetails.photos && placeDetails.photos.length > 0 && (
-							<div className="space-y-2">
-								<h3 className="font-semibold text-lg">Photos</h3>
-								<div className="text-muted-foreground text-sm">
-									{placeDetails.photos.length} photo
-									{placeDetails.photos.length !== 1 ? "s" : ""} available
+						{finalPlaceDetails.photos &&
+							finalPlaceDetails.photos.length > 0 && (
+								<div className="space-y-2">
+									<h3 className="font-semibold text-lg">Photos</h3>
+									<div className="text-muted-foreground text-sm">
+										{finalPlaceDetails.photos.length} photo
+										{finalPlaceDetails.photos.length !== 1 ? "s" : ""} available
+									</div>
+									<div className="text-muted-foreground text-xs">
+										Photo name: {finalPlaceDetails.photos[0]?.name}
+									</div>
 								</div>
-								<div className="text-muted-foreground text-xs">
-									Photo name: {placeDetails.photos[0]?.name}
-								</div>
-							</div>
-						)}
+							)}
 					</div>
 				)}
 			</div>
