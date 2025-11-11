@@ -3,8 +3,6 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { internalAction, internalQuery } from "./_generated/server";
 
-const BATCH_SIZE = 500;
-
 export const listAllSavedPlaces = internalQuery({
 	args: {},
 	handler: async (ctx) => {
@@ -35,6 +33,7 @@ export const syncSavedPlaces = internalAction({
 		);
 
 		// Throttle/batch if large
+		const BATCH_SIZE = 500;
 		const batch = uniquePlaceIds.slice(0, BATCH_SIZE);
 		for (const placeId of batch) {
 			const placeData = await ctx.runQuery(internal.schedule.getPlaceById, {

@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+import { createLogger } from "../src/lib/logger";
+import { STALE_THRESHOLD_MS } from "../src/lib/settings";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -8,7 +10,10 @@ import {
 	mutation,
 	query,
 } from "./_generated/server";
-import { syncPlaceToGeospatial } from "./geospatial";
+import { syncPlaceToGeospatial } from "./fn/geospatial";
+import { convertPlaceToPlaceDetailsResponse } from "./fn/places";
+
+const logger = createLogger("convex/places");
 
 /**
  * Internal mutation to upsert a place in the database.
@@ -300,58 +305,6 @@ export const removeSavedPlace = mutation({
 	},
 });
 
-// 24 hours in milliseconds
-const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Helper function to convert Convex place document to PlaceDetailsResponse format
- */
-function convertPlaceToPlaceDetailsResponse(place: {
-	_id: Id<"places">;
-	providerPlaceId: string;
-	name: string;
-	formattedAddress?: string;
-	location?: { lat: number; lng: number };
-	rating?: number;
-	photos?: Array<{ name: string; widthPx: number; heightPx: number }>;
-	websiteUri?: string;
-	internationalPhoneNumber?: string;
-	googleMapsUri?: string;
-	regularOpeningHours?: {
-		openNow?: boolean;
-	};
-	raw?: Record<string, unknown>;
-}): {
-	id: string;
-	name: string;
-	formatted_address?: string;
-	location?: { lat: number; lng: number };
-	rating?: number;
-	user_ratings_total?: number;
-	open_now?: boolean;
-	photos?: Array<{ name: string; widthPx: number; heightPx: number }>;
-	website?: string;
-	phone?: string;
-	google_maps_uri?: string;
-} {
-	return {
-		id: place.providerPlaceId,
-		name: place.name,
-		formatted_address: place.formattedAddress,
-		location: place.location,
-		rating: place.rating,
-		user_ratings_total:
-			typeof place.raw?.userRatingCount === "number"
-				? place.raw.userRatingCount
-				: undefined,
-		open_now: place.regularOpeningHours?.openNow,
-		photos: place.photos,
-		website: place.websiteUri,
-		phone: place.internationalPhoneNumber,
-		google_maps_uri: place.googleMapsUri,
-	};
-}
-
 /**
  * Action to revalidate a place by fetching fresh data from Google.
  * Called automatically by the query when stale data is detected.
@@ -495,7 +448,7 @@ export const revalidatePlace = mutation({
 			.first();
 
 		if (!place) {
-			console.warn(`Place ${providerPlaceId} not found`);
+			logger.warn(`Place ${providerPlaceId} not found`);
 			return null;
 		}
 

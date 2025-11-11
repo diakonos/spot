@@ -4,7 +4,10 @@ import FirecrawlApp from "@mendable/firecrawl-js";
 import { v } from "convex/values";
 import { z } from "zod";
 import type { PlaceDetailsResponse } from "../src/integrations/google/types";
+import { createLogger } from "../src/lib/logger";
 import { action } from "./_generated/server";
+
+const logger = createLogger("convex/crawl");
 
 /**
  * Crawl a URL and attempt to extract place-like information using Firecrawl's structured extraction.
@@ -30,7 +33,7 @@ export const firecrawlUrlToPlace = action({
 			throw new Error("FIRECRAWL_API_KEY environment variable is not set");
 		}
 
-		const app = new FirecrawlApp({ apiKey });
+		const firecrawl = new FirecrawlApp({ apiKey });
 
 		// Define the schema for structured data extraction using Zod
 		// This matches the fields we want to extract from place/business websites
@@ -52,7 +55,7 @@ export const firecrawlUrlToPlace = action({
 
 		// Use Firecrawl's structured extraction with JSON format
 		// Reference: https://docs.firecrawl.dev/features/scrape#extract-structured-data
-		const scrapeResult = await app.scrape(parsedUrl.toString(), {
+		const scrapeResult = await firecrawl.scrape(parsedUrl.toString(), {
 			formats: [
 				{
 					type: "json",
@@ -66,7 +69,7 @@ export const firecrawlUrlToPlace = action({
 		const extractedData = scrapeResult.json as Partial<
 			z.infer<typeof placeSchema>
 		>;
-		console.debug("firecrawl extracted data:", extractedData);
+		logger.debug("firecrawl extracted data:", extractedData);
 
 		if (!extractedData.name) {
 			throw new Error("No name could be parsed.");

@@ -2,107 +2,15 @@
 
 import { v } from "convex/values";
 import type { GooglePlaceDetailsResponse } from "../src/integrations/google/types";
+import { createLogger } from "../src/lib/logger";
 import { action } from "./_generated/server";
+import { validators } from "./schema";
+
+const logger = createLogger("convex/google");
 
 export const fetchPlaceDetails = action({
 	args: { placeId: v.string() },
-	returns: v.object({
-		provider: v.literal("google"),
-		providerPlaceId: v.string(),
-		name: v.string(),
-		displayName: v.optional(
-			v.object({
-				text: v.string(),
-				languageCode: v.string(),
-			})
-		),
-		formattedAddress: v.optional(v.string()),
-		addressComponents: v.optional(
-			v.array(
-				v.object({
-					longText: v.string(),
-					shortText: v.optional(v.string()),
-					types: v.array(v.string()),
-					languageCode: v.optional(v.string()),
-				})
-			)
-		),
-		location: v.optional(
-			v.object({
-				lat: v.number(),
-				lng: v.number(),
-			})
-		),
-		primaryType: v.optional(v.string()),
-		primaryTypeDisplayName: v.optional(
-			v.object({
-				text: v.string(),
-				languageCode: v.string(),
-			})
-		),
-		businessStatus: v.optional(
-			v.union(
-				v.literal("OPERATIONAL"),
-				v.literal("CLOSED_TEMPORARILY"),
-				v.literal("CLOSED_PERMANENTLY")
-			)
-		),
-		internationalPhoneNumber: v.optional(v.string()),
-		nationalPhoneNumber: v.optional(v.string()),
-		websiteUri: v.optional(v.string()),
-		googleMapsUri: v.optional(v.string()),
-		photos: v.optional(
-			v.array(
-				v.object({
-					name: v.string(),
-					widthPx: v.number(),
-					heightPx: v.number(),
-				})
-			)
-		),
-		regularOpeningHours: v.optional(
-			v.object({
-				openNow: v.optional(v.boolean()),
-				weekdayDescriptions: v.optional(v.array(v.string())),
-				periods: v.optional(
-					v.array(
-						v.object({
-							open: v.optional(
-								v.object({
-									day: v.optional(v.number()),
-									hour: v.optional(v.number()),
-									minute: v.optional(v.number()),
-									date: v.optional(
-										v.object({
-											year: v.number(),
-											month: v.number(),
-											day: v.number(),
-										})
-									),
-								})
-							),
-							close: v.optional(
-								v.object({
-									day: v.optional(v.number()),
-									hour: v.optional(v.number()),
-									minute: v.optional(v.number()),
-									date: v.optional(
-										v.object({
-											year: v.number(),
-											month: v.number(),
-											day: v.number(),
-										})
-									),
-								})
-							),
-						})
-					)
-				),
-			})
-		),
-		rating: v.optional(v.number()),
-		raw: v.record(v.string(), v.any()),
-	}),
+	returns: validators.place.full,
 	handler: async (_ctx, { placeId }) => {
 		const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 		if (!apiKey) {
@@ -138,12 +46,12 @@ export const fetchPlaceDetails = action({
 			}
 		);
 		if (!res.ok) {
-			console.error(`[${res.status}] ${res.statusText}`);
-			console.error(await res.text());
+			logger.error(`[${res.status}] ${res.statusText}`);
+			logger.error(await res.text());
 			throw new Error("Google Places Details API request failed.");
 		}
 		const place = (await res.json()) as GooglePlaceDetailsResponse;
-		console.debug("Google place:", place);
+		logger.debug("Google place:", place);
 
 		return {
 			provider: "google" as const,
