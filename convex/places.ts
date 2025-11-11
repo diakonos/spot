@@ -8,6 +8,7 @@ import {
 	mutation,
 	query,
 } from "./_generated/server";
+import { syncPlaceToGeospatial } from "./geospatial";
 
 /**
  * Internal mutation to upsert a place in the database.
@@ -78,10 +79,13 @@ export const upsertPlace = internalMutation({
 
 		if (existing) {
 			await ctx.db.patch(existing._id, placeData);
+			await syncPlaceToGeospatial(ctx, existing._id);
 			return existing._id;
 		}
 
-		return await ctx.db.insert("places", placeData);
+		const placeId = await ctx.db.insert("places", placeData);
+		await syncPlaceToGeospatial(ctx, placeId);
+		return placeId;
 	},
 });
 
@@ -183,6 +187,8 @@ export const savePlaceForOwner = mutation({
 		} else {
 			placeId = await ctx.db.insert("places", placeData);
 		}
+
+		await syncPlaceToGeospatial(ctx, placeId);
 
 		// Save the place for the user
 		const existingSave = await ctx.db
@@ -572,6 +578,8 @@ export const savePlaceForCurrentUser = mutation({
 				providerPlaceId: args.providerPlaceId,
 			});
 		}
+
+		await syncPlaceToGeospatial(ctx, placeId);
 
 		// Save the place for the user
 		const existingSave = await ctx.db

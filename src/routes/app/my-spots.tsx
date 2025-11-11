@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery as useConvexQuery } from "convex/react";
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin } from "lucide-react";
+import { useMapViewState } from "@/context/MapViewContext";
 import { api } from "../../../convex/_generated/api";
 
 export const Route = createFileRoute("/app/my-spots")({
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/app/my-spots")({
 function RouteComponent() {
 	const navigate = useNavigate();
 	const savedPlaces = useConvexQuery(api.places.listSavedPlacesForCurrentUser);
+	const { setHighlight } = useMapViewState();
 
 	return (
 		<motion.div
@@ -55,6 +57,13 @@ function RouteComponent() {
 							return (
 								<li key={save._id}>
 									<Link
+										onClick={() => {
+											setHighlight({
+												providerPlaceId: place.providerPlaceId,
+												placeId: place._id,
+												name: place.name,
+											});
+										}}
 										params={{ placeid: place.providerPlaceId }}
 										to="/app/place/$placeid"
 									>

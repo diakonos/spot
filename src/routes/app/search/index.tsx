@@ -3,8 +3,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import MapComponent from "@/components/Map";
+import MapComponent, { type MapMarker } from "@/components/Map";
 import { SearchBar } from "@/components/SearchBar";
+import { useMapViewState } from "@/context/MapViewContext";
 import {
 	autocompletePlaces,
 	searchPlacesByText,
@@ -30,6 +31,8 @@ function RouteComponent() {
 			geometry?: { location?: { lat: number; lng: number } };
 		}>
 	>([]);
+
+	const { mode, setHighlight, highlight } = useMapViewState();
 
 	const DEBOUNCE_DELAY_MS = 250;
 	const SECONDS_PER_MINUTE = 60;
@@ -72,7 +75,8 @@ function RouteComponent() {
 	const suggestions = useMemo(() => autocompleteData ?? [], [autocompleteData]);
 
 	const handleSuggestionClick = useCallback(
-		(placeId: string) => {
+		(placeId: string, name?: string) => {
+			setHighlight({ providerPlaceId: placeId, name });
 			navigate({
 				to: "/app/place/$placeid" as const,
 				params: { placeid: placeId },
@@ -80,7 +84,7 @@ function RouteComponent() {
 				state: { sessionToken } as any,
 			});
 		},
-		[navigate, sessionToken]
+		[navigate, sessionToken, setHighlight]
 	);
 
 	const runSearch = useCallback(async () => {
@@ -112,6 +116,59 @@ function RouteComponent() {
 		}
 	}, [input, navigate]);
 
+	const suggestionItems = useMemo(
+		() =>
+			suggestions.map((suggestion) => (
+				<li key={suggestion.place_id}>
+					<button
+						className="w-full cursor-pointer p-3 text-left transition-colors hover:bg-muted/50"
+						onClick={() => {
+							handleSuggestionClick(
+								suggestion.place_id,
+								suggestion.primary_text
+							);
+						}}
+						type="button"
+					>
+						<div className="font-medium leading-tight">
+							{suggestion.primary_text}
+						</div>
+						{suggestion.secondary_text && (
+							<div className="text-muted-foreground text-xs">
+								{suggestion.secondary_text}
+							</div>
+						)}
+					</button>
+				</li>
+			)),
+		[handleSuggestionClick, suggestions]
+	);
+
+	const resultItems = useMemo(
+		() =>
+			results.map((r) => (
+				<li key={r.place_id}>
+					<button
+						className="w-full cursor-pointer rounded-lg border bg-background/50 p-3 text-left transition-colors hover:bg-background/70"
+						onClick={() => {
+							handleSuggestionClick(r.place_id, r.name);
+						}}
+						type="button"
+					>
+						<div className="font-medium leading-tight">{r.name}</div>
+						{r.formatted_address && (
+							<div className="text-muted-foreground text-xs">
+								{r.formatted_address}
+							</div>
+						)}
+					</button>
+				</li>
+			)),
+		[handleSuggestionClick, results]
+	);
+
+	const shouldShowResults = !(isLoading || error) && results.length > 0;
+
 	return (
 		<div className="relative h-screen w-full">
 			<motion.div
@@ -119,7 +176,18 @@ function RouteComponent() {
 				className="pointer-events-none absolute top-0 left-0 h-full w-full"
 				layoutId="map"
 			>
-				<MapComponent />
+				<MapComponent
+					highlightProviderPlaceId={highlight?.providerPlaceId}
+					mode={mode}
+					// keep map passive on search screen
+					onMarkerSelect={(marker: MapMarker) =>
+						setHighlight({
+							providerPlaceId: marker.providerPlaceId,
+							placeId: marker.placeId,
+							name: marker.name,
+						})
+					}
+				/>
 			</motion.div>
 			<div className="flex w-full justify-center gap-2 px-4 pt-4 pb-2 backdrop-blur">
 				<button
@@ -170,28 +238,7 @@ function RouteComponent() {
 									</div>
 								)}
 								{suggestions.length > 0 && (
-									<ul className="divide-y">
-										{suggestions.map((suggestion) => (
-											<li key={suggestion.place_id}>
-												<button
-													className="w-full cursor-pointer p-3 text-left transition-colors hover:bg-muted/50"
-													onClick={() => {
-														handleSuggestionClick(suggestion.place_id);
-													}}
-													type="button"
-												>
-													<div className="font-medium leading-tight">
-														{suggestion.primary_text}
-													</div>
-													{suggestion.secondary_text && (
-														<div className="text-muted-foreground text-xs">
-															{suggestion.secondary_text}
-														</div>
-													)}
-												</button>
-											</li>
-										))}
-									</ul>
+									<ul className="divide-y">{suggestionItems}</ul>
 								)}
 							</div>
 						)}
@@ -202,28 +249,7 @@ function RouteComponent() {
 					<div className="text-muted-foreground text-sm">Searching…</div>
 				)}
 				{error && <div className="text-red-500 text-sm">{error}</div>}
-				{!(isLoading || error) && results.length > 0 && (
-					<ul className="space-y-3">
-						{results.map((r) => (
-							<li key={r.place_id}>
-								<button
-									className="w-full cursor-pointer rounded-lg border bg-background/50 p-3 text-left transition-colors hover:bg-background/70"
-									onClick={() => {
-										handleSuggestionClick(r.place_id);
-									}}
-									type="button"
-								>
-									<div className="font-medium leading-tight">{r.name}</div>
-									{r.formatted_address && (
-										<div className="text-muted-foreground text-xs">
-											{r.formatted_address}
-										</div>
-									)}
-								</button>
-							</li>
-						))}
-					</ul>
-				)}
+				{shouldShowResults && <ul className="space-y-3">{resultItems}</ul>}
 			</div>
 		</div>
 	);

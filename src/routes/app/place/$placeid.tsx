@@ -9,7 +9,8 @@ import {
 	MapPin,
 	Phone,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMapViewState } from "@/context/MapViewContext";
 import { api } from "../../../../convex/_generated/api";
 import { getPlaceDetails } from "../../../integrations/google/client";
 import type { PlaceDetailsResponse } from "../../../integrations/google/types";
@@ -24,6 +25,7 @@ function PlaceDetailsComponent() {
 	const { placeid } = Route.useParams();
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
+	const { setHighlight } = useMapViewState();
 
 	// Try to get place from Convex first
 	const convexPlaceData = useConvexQuery(
@@ -58,6 +60,24 @@ function PlaceDetailsComponent() {
 		convexPlaceData === undefined ||
 		(convexPlaceData === null && isLoadingGoogle);
 	const error = googleError;
+
+	useEffect(() => {
+		if (!finalPlaceDetails) {
+			return;
+		}
+		setHighlight((prev) => {
+			if (prev?.providerPlaceId === placeid) {
+				return prev;
+			}
+			return {
+				providerPlaceId: placeid,
+				name: finalPlaceDetails.name,
+			};
+		});
+		return () => {
+			setHighlight((prev) => (prev?.providerPlaceId === placeid ? null : prev));
+		};
+	}, [finalPlaceDetails, placeid, setHighlight]);
 
 	// Save mutation
 	const savePlace = useMutation(api.places.savePlaceForCurrentUser);
