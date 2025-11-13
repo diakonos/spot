@@ -21,6 +21,7 @@ import { Vector as VectorSource } from "ol/source";
 import OSM from "ol/source/OSM";
 import { Circle, Fill, Stroke, Style } from "ol/style";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { coordinatesEqual } from "@/lib/geospatial";
 import type { MapBounds, MapMarker, MapMode } from "@/types/geospatial";
 import { api } from "../../convex/_generated/api";
 
@@ -76,15 +77,6 @@ function getMarkerStyle({
 
 	markerStyleCache.set(key, style);
 	return style;
-}
-
-function coordinatesEqual(a: MapBounds, b: MapBounds, tolerance = 0.0001) {
-	return (
-		Math.abs(a.west - b.west) < tolerance &&
-		Math.abs(a.south - b.south) < tolerance &&
-		Math.abs(a.east - b.east) < tolerance &&
-		Math.abs(a.north - b.north) < tolerance
-	);
 }
 
 export default function MapComponent({

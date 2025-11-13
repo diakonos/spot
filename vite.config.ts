@@ -17,6 +17,11 @@ const config = defineConfig({
 		netlify(),
 		viteReact(),
 	],
+	resolve: {
+		alias: {
+			cookie: "cookie-es",
+		},
+	},
 });
 
 export default wrapVinxiConfigWithSentry(config, {

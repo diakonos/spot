@@ -2,12 +2,7 @@
 import * as Sentry from "@sentry/tanstackstart-react";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
-import {
-	createRootRoute,
-	HeadContent,
-	Scripts,
-	useRouterState,
-} from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { LayoutGroup } from "framer-motion";
 
@@ -40,9 +35,6 @@ export const Route = Sentry.wrapCreateRootRouteWithSentry(createRootRoute)({
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-	const { location } = useRouterState({
-		select: (s) => ({ location: s.location }),
-	});
 	return (
 		<html lang="en">
 			<head>
@@ -50,9 +42,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</head>
 			<body>
 				<MapViewStateProvider>
-					<LayoutGroup>
-						<div key={location.pathname}>{children}</div>
-					</LayoutGroup>
+					<LayoutGroup>{children}</LayoutGroup>
 				</MapViewStateProvider>
 				<TanStackDevtools
 					config={{
