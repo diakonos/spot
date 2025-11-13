@@ -1,4 +1,6 @@
 // biome-ignore lint/style/useFilenamingConvention: Map component uses PascalCase name for consistency.
+
+import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { useQuery as useConvexQuery } from "convex/react";
 import { Feature } from "ol";
 import { Point } from "ol/geom";
@@ -19,26 +21,8 @@ import { Vector as VectorSource } from "ol/source";
 import OSM from "ol/source/OSM";
 import { Circle, Fill, Stroke, Style } from "ol/style";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MapBounds, MapMarker, MapMode } from "@/types/geospatial";
 import { api } from "../../convex/_generated/api";
-
-export type MapMode = "all" | "saved" | "none";
-
-export type MapBounds = {
-	west: number;
-	south: number;
-	east: number;
-	north: number;
-};
-
-export type MapMarker = {
-	placeId: string;
-	providerPlaceId: string;
-	name: string;
-	latitude: number;
-	longitude: number;
-	isSaved: boolean;
-	isHighlighted: boolean;
-};
 
 type MapComponentProps = {
 	mode: MapMode;
@@ -109,6 +93,7 @@ export default function MapComponent({
 	onMarkerSelect,
 	onBoundsChange,
 }: MapComponentProps) {
+	const { loading: authLoading } = useAuth();
 	const [mapInstance, setMapInstance] = useState<OlMap | null>(null);
 	const [userLocationSource, setUserLocationSource] =
 		useState<VectorSource | null>(null);
@@ -285,7 +270,7 @@ export default function MapComponent({
 	}, [mapInstance]);
 
 	const queryArgs = useMemo(() => {
-		if (!bounds) {
+		if (!bounds || authLoading) {
 			return;
 		}
 		return {
@@ -293,7 +278,7 @@ export default function MapComponent({
 			mode,
 			highlightProviderPlaceId: highlightProviderPlaceId ?? undefined,
 		};
-	}, [bounds, mode, highlightProviderPlaceId]);
+	}, [bounds, mode, highlightProviderPlaceId, authLoading]);
 
 	const mapData = useConvexQuery(api.map.listPlacesForMap, queryArgs ?? "skip");
 
