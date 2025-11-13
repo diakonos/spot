@@ -6,7 +6,8 @@ import { useCallback, useMemo } from "react";
 import { Button } from "@/components/Button";
 import { useMapViewState } from "@/context/MapViewContext";
 import { cn } from "@/lib/utils";
-import MapComponent, { type MapMarker } from "../../components/Map";
+import type { MapMarker } from "@/types/geospatial";
+import MapComponent from "../../components/Map";
 
 export const Route = createFileRoute("/app/")({
 	component: RouteComponent,
