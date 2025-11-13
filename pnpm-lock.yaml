@@ -119,6 +119,9 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
+      react-openlayers:
+        specifier: ^10.5.1
+        version: 10.5.1(ol@10.6.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       storybook:
         specifier: ^9.1.9
         version: 9.1.16(@testing-library/dom@10.4.1)(prettier@3.6.2)(vite@7.1.12(@types/node@22.18.13)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)(yaml@2.8.1))
@@ -153,9 +156,6 @@ importers:
       '@types/node':
         specifier: ^22.10.2
         version: 22.18.13
-      '@types/ol':
-        specifier: ^7.0.0
-        version: 7.0.0
       '@types/react':
         specifier: ^19.2.0
         version: 19.2.2
@@ -2905,10 +2905,6 @@ packages:
   '@types/normalize-package-data@2.4.4':
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
 
-  '@types/ol@7.0.0':
-    resolution: {integrity: sha512-JKNA4FYdgBz1GidTsrHu4PPPbCCpddXRG0qDpX8Cz08n2RxJ5PZIQaiAGQKO0y2pNuy7qBQqgOu/rQwttj+L3w==}
-    deprecated: This is a stub types definition. ol provides its own type definitions, so you do not need this installed.
-
   '@types/pg-pool@2.0.6':
     resolution: {integrity: sha512-TaAUE5rq2VQYxab5Ts7WZhKNmuN78Q6PiFonTDdpbx8a1H0M1vhy3rhiMjl+e2iHmogyMw7jZF4FrE6eJUy5HQ==}
 
@@ -5012,6 +5008,13 @@ packages:
 
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
+
+  react-openlayers@10.5.1:
+    resolution: {integrity: sha512-IWEXerUjn/N6sbUP/FURKvYDtJj/FZVxmK0WBw4kbAVVyQvs/5JTlD/x9+QEPqNzbAITX6lwasdrQ+WW51y/6g==}
+    peerDependencies:
+      ol: ^10.5.0
+      react: ^18 || ^19
+      react-dom: ^18 || ^19
 
   react-refresh@0.18.0:
     resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
@@ -8960,10 +8963,6 @@ snapshots:
 
   '@types/normalize-package-data@2.4.4': {}
 
-  '@types/ol@7.0.0':
-    dependencies:
-      ol: 10.6.1
-
   '@types/pg-pool@2.0.6':
     dependencies:
       '@types/pg': 8.15.5
@@ -11099,6 +11098,12 @@ snapshots:
   react-is@16.13.1: {}
 
   react-is@17.0.2: {}
+
+  react-openlayers@10.5.1(ol@10.6.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+    dependencies:
+      ol: 10.6.1
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
 
   react-refresh@0.18.0: {}
 

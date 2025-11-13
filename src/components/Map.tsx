@@ -2,11 +2,17 @@
 import { useQuery as useConvexQuery } from "convex/react";
 import { Feature } from "ol";
 import { Point } from "ol/geom";
-import { Vector as VectorLayer } from "ol/layer";
-import TileLayer from "ol/layer/Tile";
-import OlMap from "ol/Map";
+import { defaults as defaultInteractions } from "ol/interaction/defaults";
+import type OlMap from "ol/Map";
 import type MapBrowserEvent from "ol/MapBrowserEvent";
-import View from "ol/View";
+import type { Types as MapBrowserEventTypeLiteral } from "ol/MapBrowserEventType";
+import type { Types as MapEventTypeLiteral } from "ol/MapEventType";
+import {
+	Map as OlReactMap,
+	TileLayer as TileLayerComponent,
+	VectorLayer as VectorLayerComponent,
+	View,
+} from "react-openlayers";
 import "ol/ol.css";
 import { fromLonLat, toLonLat } from "ol/proj";
 import { Vector as VectorSource } from "ol/source";
@@ -42,6 +48,10 @@ type MapComponentProps = {
 };
 
 const washdcLongLat: [number, number] = [-77.0369, 38.9072];
+
+const MOVE_END_EVENT: MapEventTypeLiteral = "moveend";
+const SINGLE_CLICK_EVENT: MapBrowserEventTypeLiteral = "singleclick";
+const POINTER_MOVE_EVENT: MapBrowserEventTypeLiteral = "pointermove";
 
 const markerStyleCache = new Map<string, Style>();
 
@@ -99,11 +109,15 @@ export default function MapComponent({
 	onMarkerSelect,
 	onBoundsChange,
 }: MapComponentProps) {
-	const mapContainerRef = useRef<HTMLDivElement>(null);
-	const mapInstanceRef = useRef<OlMap | null>(null);
-	const placesLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+	const [mapInstance, setMapInstance] = useState<OlMap | null>(null);
+	const [userLocationSource, setUserLocationSource] =
+		useState<VectorSource | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [bounds, setBounds] = useState<MapBounds | null>(null);
+
+	const handleMapMount = useCallback((map: OlMap | undefined) => {
+		setMapInstance(map ?? null);
+	}, []);
 
 	const onMarkerSelectRef = useRef(onMarkerSelect);
 	const onBoundsChangeRef = useRef(onBoundsChange);
@@ -117,6 +131,16 @@ export default function MapComponent({
 	}, [onBoundsChange]);
 
 	const defaultCenter = useMemo(() => fromLonLat(washdcLongLat), []);
+	const baseTileSource = useMemo(() => new OSM(), []);
+	const interactions = useMemo(
+		() =>
+			defaultInteractions({
+				altShiftDragRotate: false,
+				pinchRotate: false,
+			}),
+		[]
+	);
+	const placesSource = useMemo(() => new VectorSource(), []);
 
 	const updateBounds = useCallback((map: OlMap) => {
 		const size = map.getSize();
@@ -142,39 +166,24 @@ export default function MapComponent({
 	}, []);
 
 	useEffect(() => {
-		if (!mapContainerRef.current || mapInstanceRef.current) {
+		if (!mapInstance) {
 			return;
 		}
 
-		const baseLayer = new TileLayer({
-			source: new OSM(),
-		});
-
-		const map = new OlMap({
-			target: mapContainerRef.current,
-			layers: [baseLayer],
-			view: new View({
-				center: defaultCenter,
-				zoom: 12,
-			}),
-			controls: [],
-		});
-
-		const placeVectorSource = new VectorSource();
-		const placeLayer = new VectorLayer({
-			source: placeVectorSource,
-			zIndex: 10,
-		});
-		map.addLayer(placeLayer);
-		placesLayerRef.current = placeLayer;
+		const mapEvents = mapInstance as unknown as {
+			on: (type: string, listener: (event: unknown) => void) => void;
+			un: (type: string, listener: (event: unknown) => void) => void;
+		};
 
 		const handleMoveEnd = () => {
-			updateBounds(map);
+			updateBounds(mapInstance);
 		};
-		map.on("moveend", handleMoveEnd);
 
-		const handleClick = (event: MapBrowserEvent<UIEvent>) => {
-			const feature = map.forEachFeatureAtPixel(event.pixel, (feat) => feat);
+		const handleClick = (event: MapBrowserEvent<PointerEvent>) => {
+			const feature = mapInstance.forEachFeatureAtPixel(
+				event.pixel,
+				(feat) => feat
+			);
 			if (!feature) {
 				return;
 			}
@@ -183,76 +192,97 @@ export default function MapComponent({
 				onMarkerSelectRef.current?.(markerData);
 			}
 		};
-		map.on("singleclick", handleClick);
 
-		const handlePointerMove = (event: MapBrowserEvent<UIEvent>) => {
-			const hit = map.hasFeatureAtPixel(event.pixel);
-			const targetElement = map.getTargetElement();
+		const handlePointerMove = (event: MapBrowserEvent<PointerEvent>) => {
+			const hit = mapInstance.hasFeatureAtPixel(event.pixel);
+			const targetElement = mapInstance.getTargetElement();
 			if (targetElement) {
 				targetElement.style.cursor = hit ? "pointer" : "";
 			}
 		};
-		map.on("pointermove", handlePointerMove);
 
-		mapInstanceRef.current = map;
-		updateBounds(map);
+		mapEvents.on(MOVE_END_EVENT, handleMoveEnd as (event: unknown) => void);
+		mapEvents.on(SINGLE_CLICK_EVENT, handleClick as (event: unknown) => void);
+		mapEvents.on(
+			POINTER_MOVE_EVENT,
+			handlePointerMove as (event: unknown) => void
+		);
 
-		if (navigator.geolocation) {
-			navigator.geolocation.getCurrentPosition(
-				(position) => {
-					const userLonLat: [number, number] = [
-						position.coords.longitude,
-						position.coords.latitude,
-					];
-					const userLocation = fromLonLat(userLonLat);
-					map.getView().setCenter(userLocation);
-					map.getView().setZoom(16);
+		updateBounds(mapInstance);
 
-					const userFeature = new Feature({
-						geometry: new Point(userLocation),
-					});
-					userFeature.setStyle(
-						new Style({
-							image: new Circle({
-								radius: 8,
-								fill: new Fill({ color: "#38bdf8" }),
-								stroke: new Stroke({ color: "#0f172a", width: 2 }),
-							}),
-						})
-					);
-
-					const locationLayer = new VectorLayer({
-						source: new VectorSource({ features: [userFeature] }),
-						zIndex: 20,
-					});
-					map.addLayer(locationLayer);
-				},
-				(_err) => {
-					setError(
-						"Unable to retrieve your location. Showing Washington, DC instead."
-					);
-				},
-				{
-					enableHighAccuracy: true,
-					timeout: 10_000,
-					maximumAge: 0,
-				}
+		return () => {
+			mapEvents.un(MOVE_END_EVENT, handleMoveEnd as (event: unknown) => void);
+			mapEvents.un(SINGLE_CLICK_EVENT, handleClick as (event: unknown) => void);
+			mapEvents.un(
+				POINTER_MOVE_EVENT,
+				handlePointerMove as (event: unknown) => void
 			);
-		} else {
+		};
+	}, [mapInstance, updateBounds]);
+
+	useEffect(() => {
+		if (!mapInstance) {
+			return;
+		}
+
+		let isActive = true;
+
+		if (!navigator.geolocation) {
 			setError(
 				"Geolocation is not supported by your browser. Showing Washington, DC instead."
 			);
+			return;
 		}
 
+		navigator.geolocation.getCurrentPosition(
+			(position) => {
+				if (!isActive) {
+					return;
+				}
+
+				const userLonLat: [number, number] = [
+					position.coords.longitude,
+					position.coords.latitude,
+				];
+				const userLocation = fromLonLat(userLonLat);
+				mapInstance.getView().setCenter(userLocation);
+				mapInstance.getView().setZoom(16);
+
+				const userFeature = new Feature({
+					geometry: new Point(userLocation),
+				});
+				userFeature.setStyle(
+					new Style({
+						image: new Circle({
+							radius: 8,
+							fill: new Fill({ color: "#2b7fff" }),
+							stroke: new Stroke({ color: "#fff", width: 2 }),
+						}),
+					})
+				);
+
+				setUserLocationSource(new VectorSource({ features: [userFeature] }));
+				setError(null);
+			},
+			(_err) => {
+				if (!isActive) {
+					return;
+				}
+				setError(
+					"Unable to retrieve your location. Showing Washington, DC instead."
+				);
+			},
+			{
+				enableHighAccuracy: true,
+				timeout: 10_000,
+				maximumAge: 0,
+			}
+		);
+
 		return () => {
-			map.un("moveend", handleMoveEnd);
-			map.un("singleclick", handleClick);
-			map.un("pointermove", handlePointerMove);
-			map.setTarget(undefined);
-			placesLayerRef.current = null;
-			mapInstanceRef.current = null;
+			isActive = false;
 		};
-	}, [defaultCenter, updateBounds]);
+	}, [mapInstance]);
 
 	const queryArgs = useMemo(() => {
 		if (!bounds) {
@@ -265,20 +295,14 @@ export default function MapComponent({
 		};
 	}, [bounds, mode, highlightProviderPlaceId]);
 
-	const mapData = useConvexQuery(api.map.listPlacesForMap, queryArgs);
+	const mapData = useConvexQuery(api.map.listPlacesForMap, queryArgs ?? "skip");
 
 	useEffect(() => {
-		const layer = placesLayerRef.current;
-		if (!layer) {
-			return;
-		}
-		const source = layer.getSource();
-		if (!source) {
-			return;
-		}
 		if (mapData === undefined) {
 			return;
 		}
+
+		const source = placesSource;
 
 		source.clear(true);
 		const markers = mapData?.markers ?? [];
@@ -296,7 +320,7 @@ export default function MapComponent({
 		});
 
 		source.addFeatures(features);
-	}, [mapData]);
+	}, [mapData, placesSource]);
 
 	return (
 		<div className="relative h-full w-full">
@@ -309,11 +333,24 @@ export default function MapComponent({
 					<p>{error}</p>
 				</div>
 			)}
-			<div
-				className="h-full w-full"
-				ref={mapContainerRef}
-				style={{ position: "absolute", inset: 0 }}
-			/>
+			<OlReactMap
+				controls={[]}
+				interactions={interactions}
+				ref={handleMapMount}
+				style={{
+					position: "absolute",
+					inset: 0,
+					width: "100%",
+					height: "100%",
+				}}
+			>
+				<TileLayerComponent source={baseTileSource} />
+				<VectorLayerComponent source={placesSource} zIndex={10} />
+				{userLocationSource ? (
+					<VectorLayerComponent source={userLocationSource} zIndex={20} />
+				) : null}
+				<View center={defaultCenter} zoom={12} />
+			</OlReactMap>
 		</div>
 	);
 }
