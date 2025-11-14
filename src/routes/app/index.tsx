@@ -108,8 +108,8 @@ function RouteComponent() {
 					onMarkerSelect={handleMarkerSelect}
 				/>
 			</motion.div>
-			<div className="-translate-x-1/2 absolute top-4 left-1/2 z-10 w-full max-w-xl px-4">
-				<div className="flex flex-col gap-3">
+			<div className="absolute top-0 right-0 left-0 z-10 w-full bg-linear-to-b from-black/30 to-transparent px-4 py-4">
+				<div className="mx-auto flex flex-col gap-3 sm:max-w-lg">
 					<Link to="/app/search">
 						<motion.div layoutId="searchbar">
 							<Button
@@ -141,13 +141,6 @@ function RouteComponent() {
 						</div>
 					)}
 				</div>
-			</div>
-			<div className="relative h-18 bg-linear-to-t from-transparent to-black/30">
-				{user && (
-					<div className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white p-3 shadow-lg">
-						{user.firstName?.charAt(0).toUpperCase()}
-					</div>
-				)}
 			</div>
 			<div className="absolute bottom-0 left-0 flex w-full flex-col items-center justify-center gap-4 bg-linear-to-b from-transparent to-black/30 px-4 pt-4 pb-12">
 				<div className="flex w-full justify-center">

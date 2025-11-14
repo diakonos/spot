@@ -1,6 +1,9 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { getAuth, getSignInUrl } from "@workos/authkit-tanstack-react-start";
+import { ListIcon, MapPinIcon } from "lucide-react";
 import { Button } from "@/components/Button";
+import { PageContainer } from "@/components/PageContainer";
+import { PageNav } from "@/components/PageNav";
 
 const FALLBACK_SIGNIN_PATH = "/api/auth/login";
 
@@ -32,40 +35,28 @@ function ProfileRoute() {
 	const initials = displayName.slice(0, 2).toUpperCase();
 
 	return (
-		<div className="min-h-screen bg-linear-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
-			<div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-10 px-6 py-16 text-center">
-				<div className="flex size-24 items-center justify-center rounded-full border border-white/20 bg-white/10 font-bold text-4xl uppercase tracking-widest">
+		<PageContainer>
+			<PageNav backLink="/app" title="Profile" />
+			<div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-10 px-6 pt-10 text-center">
+				<div className="flex size-24 items-center justify-center rounded-full border border-black/20 bg-black/10 font-bold text-4xl uppercase tracking-widest">
 					{initials}
 				</div>
-				<div className="space-y-2">
-					<p className="text-base text-white/70">Signed in as</p>
-					<h1 className="font-semibold text-4xl">{displayName}</h1>
-					{user.email && <p className="text-lg text-white/80">{user.email}</p>}
-				</div>
-				<div className="w-full max-w-sm space-y-3">
-					<Link className="block" to="/app/profile/lists">
-						<Button
-							className="w-full rounded-2xl py-4 text-lg"
-							variant="secondary"
-						>
-							View my lists
+				<h1 className="font-semibold text-4xl">{displayName}</h1>
+				<div className="flex w-full max-w-sm space-x-3">
+					<Link className="flex-1/2" to="/app/profile/lists">
+						<Button className="w-full text-lg">
+							<ListIcon className="size-5" />
+							My lists
 						</Button>
 					</Link>
-					<Link className="block" to="/app/profile/spots">
-						<Button
-							className="w-full rounded-2xl py-4 text-lg"
-							variant="primary"
-						>
-							View my spots
-						</Button>
-					</Link>
-					<Link className="block" to="/app">
-						<Button className="w-full rounded-2xl py-4 text-lg">
-							Back to map
+					<Link className="flex-1/2" to="/app/profile/spots">
+						<Button className="w-full text-lg" variant="primary">
+							<MapPinIcon className="size-5" />
+							My spots
 						</Button>
 					</Link>
 				</div>
 			</div>
-		</div>
+		</PageContainer>
 	);
 }
