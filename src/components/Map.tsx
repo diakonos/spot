@@ -22,6 +22,7 @@ type MapComponentProps = {
 	highlightProviderPlaceId?: string | null;
 	onMarkerSelect?: (marker: MapMarker) => void;
 	onBoundsChange?: (bounds: MapBounds) => void;
+	onMapTap?: () => void;
 };
 
 type MarkerFeatureProperties = {
@@ -111,6 +112,7 @@ export default function MapComponent({
 	highlightProviderPlaceId,
 	onMarkerSelect,
 	onBoundsChange,
+	onMapTap,
 }: MapComponentProps) {
 	const { loading: authLoading } = useAuth();
 	const [error, setError] = useState<string | null>(null);
@@ -126,6 +128,7 @@ export default function MapComponent({
 
 	const onMarkerSelectRef = useRef(onMarkerSelect);
 	const onBoundsChangeRef = useRef(onBoundsChange);
+	const onMapTapRef = useRef(onMapTap);
 
 	useEffect(() => {
 		onMarkerSelectRef.current = onMarkerSelect;
@@ -134,6 +137,10 @@ export default function MapComponent({
 	useEffect(() => {
 		onBoundsChangeRef.current = onBoundsChange;
 	}, [onBoundsChange]);
+
+	useEffect(() => {
+		onMapTapRef.current = onMapTap;
+	}, [onMapTap]);
 
 	const updateBounds = useCallback((map: MapLibreMap) => {
 		const mapBounds = map.getBounds();
@@ -172,6 +179,7 @@ export default function MapComponent({
 	);
 
 	const handleClick = useCallback((event: MapMouseEvent) => {
+		onMapTapRef.current?.();
 		const map = event.target as MapLibreMap;
 		mapRef.current = map;
 		const features = map.queryRenderedFeatures(event.point, {

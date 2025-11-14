@@ -1,9 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ListIcon, SearchIcon, SparklesIcon, XIcon } from "lucide-react";
-import { useCallback } from "react";
+import { type FormEvent, useCallback, useRef, useState } from "react";
 import { Button } from "@/components/Button";
+import { Input } from "@/components/ui/input";
 import { useMapViewState } from "@/context/MapViewContext";
 import type { MapMarker } from "@/types/geospatial";
 import MapComponent from "../../components/Map";
@@ -15,6 +16,12 @@ export const Route = createFileRoute("/app/")({
 function RouteComponent() {
 	const { user } = useAuth();
 	const { mode, highlight, setHighlight } = useMapViewState();
+	const navigate = useNavigate();
+	const [saveOptionsOpen, setSaveOptionsOpen] = useState(false);
+	const [linkUrl, setLinkUrl] = useState("");
+	const [linkError, setLinkError] = useState<string | null>(null);
+	const [showLinkForm, setShowLinkForm] = useState(false);
+	const linkInputRef = useRef<HTMLInputElement>(null);
 
 	const handleMarkerSelect = useCallback(
 		(marker: MapMarker) => {
@@ -27,6 +34,61 @@ function RouteComponent() {
 		[setHighlight]
 	);
 
+	const handleManualAdd = () => {
+		navigate({ to: "/app/place/manual", search: { url: undefined } });
+	};
+
+	const handleSaveSpotClick = () => {
+		setShowLinkForm(false);
+		setLinkUrl("");
+		setLinkError(null);
+		setSaveOptionsOpen(true);
+	};
+
+	const handleSaveViaLinkClick = () => {
+		if (!showLinkForm) {
+			setShowLinkForm(true);
+		}
+		requestAnimationFrame(() => {
+			linkInputRef.current?.focus();
+		});
+	};
+
+	const handleLinkSubmit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		const trimmed = linkUrl.trim();
+		if (!trimmed) {
+			setLinkError("Paste a link to continue");
+			return;
+		}
+
+		try {
+			new URL(trimmed);
+		} catch {
+			setLinkError("Enter a valid URL");
+			return;
+		}
+
+		navigate({
+			to: "/app/place/manual",
+			search: { url: trimmed },
+		});
+		handleCloseSaveOptions();
+	};
+
+	const handleCloseSaveOptions = useCallback(() => {
+		setSaveOptionsOpen(false);
+		setLinkUrl("");
+		setLinkError(null);
+		setShowLinkForm(false);
+	}, []);
+
+	const handleMapTap = useCallback(() => {
+		if (saveOptionsOpen) {
+			handleCloseSaveOptions();
+		}
+	}, [handleCloseSaveOptions, saveOptionsOpen]);
+
 	return (
 		<div className="h-screen w-full">
 			<motion.div
@@ -36,6 +98,7 @@ function RouteComponent() {
 				<MapComponent
 					highlightProviderPlaceId={highlight?.providerPlaceId}
 					mode={mode}
+					onMapTap={handleMapTap}
 					onMarkerSelect={handleMarkerSelect}
 				/>
 			</motion.div>
@@ -80,18 +143,101 @@ function RouteComponent() {
 					</div>
 				)}
 			</div>
-			<div className="absolute bottom-0 left-0 flex w-full flex-col justify-center gap-4 bg-linear-to-b from-transparent to-black/30 px-4 py-4">
-				<div className="flex w-full gap-3">
-					<Button className="flex-1 shadow-lg" variant="primary">
-						<SparklesIcon className="h-8 w-8" /> Save spot
-					</Button>
-					<Link className="flex-1" to="/app/my-spots">
-						<motion.div layoutId="my-spots">
-							<Button className="w-full shadow-lg">
-								<ListIcon className="h-8 w-8" /> My spots
-							</Button>
-						</motion.div>
-					</Link>
+			<div className="absolute bottom-0 left-0 flex w-full flex-col items-center justify-center gap-4 bg-linear-to-b from-transparent to-black/30 px-4 py-4">
+				<div className="flex w-full justify-center">
+					<AnimatePresence initial={false} mode="wait">
+						{saveOptionsOpen ? (
+							<motion.div
+								animate={{ opacity: 1, y: 0 }}
+								className="flex w-full max-w-md flex-col gap-3"
+								exit={{ opacity: 0, y: 48 }}
+								initial={{ opacity: 0, y: 48 }}
+								key="expanded-save"
+								transition={{ duration: 0.25, ease: "easeOut" }}
+							>
+								<Button
+									className="w-full shadow-lg"
+									onClick={handleManualAdd}
+									variant="primary"
+								>
+									Add manually
+								</Button>
+								<div className="rounded-3xl bg-white/90 p-4 shadow-xl backdrop-blur-sm">
+									<div className="flex flex-col gap-3">
+										<Button
+											className="w-full"
+											onClick={handleSaveViaLinkClick}
+											variant="primary"
+										>
+											Save via link
+										</Button>
+										<AnimatePresence initial={false} mode="wait">
+											{showLinkForm && (
+												<motion.form
+													animate={{ opacity: 1, y: 0 }}
+													className="flex flex-col gap-2"
+													exit={{ opacity: 0, y: 12 }}
+													initial={{ opacity: 0, y: 12 }}
+													onSubmit={handleLinkSubmit}
+													transition={{ duration: 0.2, ease: "easeOut" }}
+												>
+													<Input
+														onChange={(event) => {
+															setLinkUrl(event.target.value);
+															if (linkError) {
+																setLinkError(null);
+															}
+														}}
+														placeholder="https://example.com/menu"
+														ref={linkInputRef}
+														type="url"
+														value={linkUrl}
+													/>
+													{linkError && (
+														<p className="text-red-500 text-sm">{linkError}</p>
+													)}
+													<Button className="w-full" type="submit">
+														Continue
+													</Button>
+												</motion.form>
+											)}
+										</AnimatePresence>
+									</div>
+								</div>
+								<button
+									className="text-center text-sm text-white/80 underline-offset-4 hover:underline"
+									onClick={handleCloseSaveOptions}
+									type="button"
+								>
+									Nevermind
+								</button>
+							</motion.div>
+						) : (
+							<motion.div
+								animate={{ opacity: 1, y: 0 }}
+								className="flex w-full max-w-xl gap-3"
+								exit={{ opacity: 0, y: 48 }}
+								initial={{ opacity: 0, y: 48 }}
+								key="collapsed-save"
+								transition={{ duration: 0.25, ease: "easeOut" }}
+							>
+								<Button
+									className="flex-1 shadow-lg"
+									onClick={handleSaveSpotClick}
+									variant="primary"
+								>
+									<SparklesIcon className="h-8 w-8" /> Save spot
+								</Button>
+								<Link className="flex-1" to="/app/my-spots">
+									<motion.div layoutId="my-spots">
+										<Button className="w-full shadow-lg">
+											<ListIcon className="h-8 w-8" /> My spots
+										</Button>
+									</motion.div>
+								</Link>
+							</motion.div>
+						)}
+					</AnimatePresence>
 				</div>
 			</div>
 		</div>

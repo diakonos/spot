@@ -3,7 +3,7 @@ import {
 	useNavigate,
 	useSearch,
 } from "@tanstack/react-router";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
@@ -219,6 +219,7 @@ function ManualPlaceEntryComponent() {
 	const navigate = useNavigate();
 	const search = useSearch({ from: "/app/place/manual" });
 	const crawlUrlToPlace = useAction(api.crawl.firecrawlUrlToPlace);
+	const savePlace = useMutation(api.places.savePlaceForCurrentUser);
 
 	const [loadingState, setLoadingState] = useState<LoadingState>("idle");
 	const [error, setError] = useState<string | null>(null);
@@ -229,6 +230,9 @@ function ManualPlaceEntryComponent() {
 	>([]);
 	const [showAlternativesDialog, setShowAlternativesDialog] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+	const [isSaving, setIsSaving] = useState(false);
+	const [saveError, setSaveError] = useState<string | null>(null);
 
 	// Progressive loading effect
 	useEffect(() => {
@@ -238,6 +242,7 @@ function ManualPlaceEntryComponent() {
 		}
 
 		let mounted = true;
+		setSelectedPlaceId(null);
 
 		const loadPlaceData = async () => {
 			try {
@@ -287,6 +292,9 @@ function ManualPlaceEntryComponent() {
 							setAutocompleteResults(details);
 							if (details[0]) {
 								setFormData(placeDetailsToFormData(details[0]));
+								setSelectedPlaceId(details[0].id);
+							} else {
+								setSelectedPlaceId(null);
 							}
 						}
 					}
@@ -325,10 +333,12 @@ function ManualPlaceEntryComponent() {
 
 	const handleSelectAlternative = (place: PlaceDetailsResponse) => {
 		setFormData(placeDetailsToFormData(place));
+		setSelectedPlaceId(place.id);
+		setSaveError(null);
 		setShowAlternativesDialog(false);
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 
 		const validationErrors = validateFormData(formData);
@@ -338,8 +348,47 @@ function ManualPlaceEntryComponent() {
 			return;
 		}
 
-		// TODO: Save to Convex or handle the place data
-		navigate({ to: "/app/search" });
+		if (!selectedPlaceId) {
+			setSaveError("Select a Google place result before saving.");
+			return;
+		}
+
+		if (isSaving) {
+			return;
+		}
+
+		setSaveError(null);
+		setIsSaving(true);
+
+		try {
+			const lat = formData.lat.trim();
+			const lng = formData.lng.trim();
+			const rating = formData.rating.trim();
+
+			await savePlace({
+				providerPlaceId: selectedPlaceId,
+				name: formData.name.trim(),
+				formattedAddress: formData.formatted_address.trim()
+					? formData.formatted_address.trim()
+					: undefined,
+				location:
+					lat && lng
+						? {
+								lat: Number.parseFloat(lat),
+								lng: Number.parseFloat(lng),
+							}
+						: undefined,
+				rating: rating ? Number.parseFloat(rating) : undefined,
+			});
+
+			navigate({ to: "/app/search" });
+		} catch (err) {
+			setSaveError(
+				err instanceof Error ? err.message : "Failed to save place. Try again."
+			);
+		} finally {
+			setIsSaving(false);
+		}
 	};
 
 	const isLoading = ["crawling", "autocomplete", "fetching"].includes(
@@ -528,8 +577,12 @@ function ManualPlaceEntryComponent() {
 							</Button>
 						)}
 						<div className="flex gap-3">
-							<Button className="flex-1" disabled={isLoading} type="submit">
-								Save Place
+							<Button
+								className="flex-1"
+								disabled={isLoading || isSaving}
+								type="submit"
+							>
+								{isSaving ? "Saving..." : "Save Place"}
 							</Button>
 							<Button
 								onClick={() => {
@@ -541,6 +594,11 @@ function ManualPlaceEntryComponent() {
 								Cancel
 							</Button>
 						</div>
+						{saveError && (
+							<p className="text-red-500 text-sm" role="alert">
+								{saveError}
+							</p>
+						)}
 					</div>
 				</form>
 			</div>
