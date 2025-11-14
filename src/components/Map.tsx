@@ -2,24 +2,16 @@
 
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { useQuery as useConvexQuery } from "convex/react";
-import { Feature } from "ol";
-import { Point } from "ol/geom";
-import { defaults as defaultInteractions } from "ol/interaction/defaults";
-import type OlMap from "ol/Map";
-import type MapBrowserEvent from "ol/MapBrowserEvent";
-import type { Types as MapBrowserEventTypeLiteral } from "ol/MapBrowserEventType";
-import type { Types as MapEventTypeLiteral } from "ol/MapEventType";
-import {
-	Map as OlReactMap,
-	TileLayer as TileLayerComponent,
-	VectorLayer as VectorLayerComponent,
-	View,
-} from "react-openlayers";
-import "ol/ol.css";
-import { fromLonLat, toLonLat } from "ol/proj";
-import { Vector as VectorSource } from "ol/source";
-import OSM from "ol/source/OSM";
-import { Circle, Fill, Stroke, Style } from "ol/style";
+import type { FeatureCollection, Point } from "geojson";
+import { RLayer, RMap, RSource } from "maplibre-react-components";
+import type {
+	CircleLayerSpecification,
+	Map as MapLibreMap,
+	MapGeoJSONFeature,
+	MapMouseEvent,
+	StyleSpecification,
+} from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { coordinatesEqual } from "@/lib/geospatial";
 import type { MapBounds, MapMarker, MapMode } from "@/types/geospatial";
@@ -32,52 +24,85 @@ type MapComponentProps = {
 	onBoundsChange?: (bounds: MapBounds) => void;
 };
 
-const washdcLongLat: [number, number] = [-77.0369, 38.9072];
+type MarkerFeatureProperties = {
+	markerData: MapMarker;
+	isHighlighted: boolean;
+	isSaved: boolean;
+};
 
-const MOVE_END_EVENT: MapEventTypeLiteral = "moveend";
-const SINGLE_CLICK_EVENT: MapBrowserEventTypeLiteral = "singleclick";
-const POINTER_MOVE_EVENT: MapBrowserEventTypeLiteral = "pointermove";
+type MapEventWithTarget = {
+	target: MapLibreMap;
+};
 
-const markerStyleCache = new Map<string, Style>();
+const DEFAULT_CENTER: [number, number] = [-77.0369, 38.9072];
+const DEFAULT_ZOOM = 12;
+const USER_LOCATION_ZOOM = 16;
+const GEOLOCATION_ERROR_UNSUPPORTED =
+	"Geolocation is not supported by your browser. Showing Washington, DC instead.";
+const GEOLOCATION_ERROR_UNAVAILABLE =
+	"Unable to retrieve your location. Showing Washington, DC instead.";
+const PLACES_SOURCE_ID = "places";
+const PLACES_LAYER_ID = "places-layer";
+const USER_LOCATION_SOURCE_ID = "user-location";
+const USER_LOCATION_LAYER_ID = "user-location-layer";
 
-function getMarkerStyle({
-	isHighlighted,
-	isSaved,
-}: Pick<MapMarker, "isHighlighted" | "isSaved">) {
-	const key = `${Number(isHighlighted)}-${Number(isSaved)}`;
-	const cachedStyle = markerStyleCache.get(key);
-	if (cachedStyle) {
-		return cachedStyle;
-	}
+const OSM_RASTER_STYLE: StyleSpecification = {
+	version: 8,
+	sources: {
+		osm: {
+			type: "raster",
+			tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+			tileSize: 256,
+			attribution:
+				'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+		},
+	},
+	layers: [
+		{
+			id: "osm",
+			type: "raster",
+			source: "osm",
+		},
+	],
+};
 
-	let radius = 6;
-	if (isHighlighted) {
-		radius = 10;
-	} else if (isSaved) {
-		radius = 7;
-	}
+const markerLayerPaint = {
+	"circle-radius": [
+		"case",
+		["==", ["get", "isHighlighted"], true],
+		10,
+		["==", ["get", "isSaved"], true],
+		7,
+		6,
+	],
+	"circle-color": [
+		"case",
+		["==", ["get", "isHighlighted"], true],
+		"#fb7185",
+		["==", ["get", "isSaved"], true],
+		"#2563eb",
+		"#ffffff",
+	],
+	"circle-stroke-color": [
+		"case",
+		["==", ["get", "isHighlighted"], true],
+		"#be123c",
+		"#0f172a",
+	],
+	"circle-stroke-width": [
+		"case",
+		["==", ["get", "isHighlighted"], true],
+		3,
+		2,
+	],
+} as CircleLayerSpecification["paint"];
 
-	let fillColor = "#ffffff";
-	if (isHighlighted) {
-		fillColor = "#fb7185"; // rose-400
-	} else if (isSaved) {
-		fillColor = "#2563eb"; // blue-600
-	}
-
-	const strokeColor = isHighlighted ? "#be123c" : "#0f172a";
-	const strokeWidth = isHighlighted ? 3 : 2;
-
-	const style = new Style({
-		image: new Circle({
-			radius,
-			fill: new Fill({ color: fillColor }),
-			stroke: new Stroke({ color: strokeColor, width: strokeWidth }),
-		}),
-	});
-
-	markerStyleCache.set(key, style);
-	return style;
-}
+const userLocationLayerPaint = {
+	"circle-radius": 8,
+	"circle-color": "#2b7fff",
+	"circle-stroke-width": 2,
+	"circle-stroke-color": "#ffffff",
+} as CircleLayerSpecification["paint"];
 
 export default function MapComponent({
 	mode,
@@ -86,15 +111,14 @@ export default function MapComponent({
 	onBoundsChange,
 }: MapComponentProps) {
 	const { loading: authLoading } = useAuth();
-	const [mapInstance, setMapInstance] = useState<OlMap | null>(null);
-	const [userLocationSource, setUserLocationSource] =
-		useState<VectorSource | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [bounds, setBounds] = useState<MapBounds | null>(null);
-
-	const handleMapMount = useCallback((map: OlMap | undefined) => {
-		setMapInstance(map ?? null);
-	}, []);
+	const [userLocation, setUserLocation] = useState<[number, number] | null>(
+		null
+	);
+	const [isMapReady, setIsMapReady] = useState(false);
+	const mapRef = useRef<MapLibreMap | null>(null);
+	const [markers, setMarkers] = useState<MapMarker[]>([]);
 
 	const onMarkerSelectRef = useRef(onMarkerSelect);
 	const onBoundsChangeRef = useRef(onBoundsChange);
@@ -107,31 +131,13 @@ export default function MapComponent({
 		onBoundsChangeRef.current = onBoundsChange;
 	}, [onBoundsChange]);
 
-	const defaultCenter = useMemo(() => fromLonLat(washdcLongLat), []);
-	const baseTileSource = useMemo(() => new OSM(), []);
-	const interactions = useMemo(
-		() =>
-			defaultInteractions({
-				altShiftDragRotate: false,
-				pinchRotate: false,
-			}),
-		[]
-	);
-	const placesSource = useMemo(() => new VectorSource(), []);
-
-	const updateBounds = useCallback((map: OlMap) => {
-		const size = map.getSize();
-		if (!size) {
-			return;
-		}
-		const extent = map.getView().calculateExtent(size);
-		const bottomLeft = toLonLat([extent[0], extent[1]]);
-		const topRight = toLonLat([extent[2], extent[3]]);
+	const updateBounds = useCallback((map: MapLibreMap) => {
+		const mapBounds = map.getBounds();
 		const newBounds: MapBounds = {
-			west: bottomLeft[0],
-			south: bottomLeft[1],
-			east: topRight[0],
-			north: topRight[1],
+			west: mapBounds.getWest(),
+			south: mapBounds.getSouth(),
+			east: mapBounds.getEast(),
+			north: mapBounds.getNorth(),
 		};
 		setBounds((prev) => {
 			if (prev && coordinatesEqual(prev, newBounds)) {
@@ -142,72 +148,62 @@ export default function MapComponent({
 		});
 	}, []);
 
-	useEffect(() => {
-		if (!mapInstance) {
+	const handleMapLoad = useCallback(
+		(event: MapEventWithTarget) => {
+			const map = event.target;
+			mapRef.current = map;
+			setIsMapReady(true);
+			updateBounds(map);
+		},
+		[updateBounds]
+	);
+
+	const handleMoveEnd = useCallback(
+		(event: MapEventWithTarget) => {
+			const map = event.target;
+			mapRef.current = map;
+			updateBounds(map);
+		},
+		[updateBounds]
+	);
+
+	const handleClick = useCallback((event: MapMouseEvent) => {
+		const map = event.target as MapLibreMap;
+		mapRef.current = map;
+		const features = map.queryRenderedFeatures(event.point, {
+			layers: [PLACES_LAYER_ID],
+		}) as MapGeoJSONFeature[];
+		const firstFeature = features[0];
+		if (!firstFeature?.properties) {
 			return;
 		}
+		const properties = firstFeature.properties as MarkerFeatureProperties;
+		const marker = properties.markerData;
+		if (marker) {
+			onMarkerSelectRef.current?.(marker);
+		}
+	}, []);
 
-		const mapEvents = mapInstance as unknown as {
-			on: (type: string, listener: (event: unknown) => void) => void;
-			un: (type: string, listener: (event: unknown) => void) => void;
-		};
-
-		const handleMoveEnd = () => {
-			updateBounds(mapInstance);
-		};
-
-		const handleClick = (event: MapBrowserEvent<PointerEvent>) => {
-			const feature = mapInstance.forEachFeatureAtPixel(
-				event.pixel,
-				(feat) => feat
-			);
-			if (!feature) {
-				return;
-			}
-			const markerData = feature.get("markerData") as MapMarker | undefined;
-			if (markerData) {
-				onMarkerSelectRef.current?.(markerData);
-			}
-		};
-
-		const handlePointerMove = (event: MapBrowserEvent<PointerEvent>) => {
-			const hit = mapInstance.hasFeatureAtPixel(event.pixel);
-			const targetElement = mapInstance.getTargetElement();
-			if (targetElement) {
-				targetElement.style.cursor = hit ? "pointer" : "";
-			}
-		};
-
-		mapEvents.on(MOVE_END_EVENT, handleMoveEnd as (event: unknown) => void);
-		mapEvents.on(SINGLE_CLICK_EVENT, handleClick as (event: unknown) => void);
-		mapEvents.on(
-			POINTER_MOVE_EVENT,
-			handlePointerMove as (event: unknown) => void
-		);
-
-		updateBounds(mapInstance);
-
-		return () => {
-			mapEvents.un(MOVE_END_EVENT, handleMoveEnd as (event: unknown) => void);
-			mapEvents.un(SINGLE_CLICK_EVENT, handleClick as (event: unknown) => void);
-			mapEvents.un(
-				POINTER_MOVE_EVENT,
-				handlePointerMove as (event: unknown) => void
-			);
-		};
-	}, [mapInstance, updateBounds]);
+	const handleMouseMove = useCallback((event: MapMouseEvent) => {
+		const map = event.target as MapLibreMap;
+		mapRef.current = map;
+		const features = map.queryRenderedFeatures(event.point, {
+			layers: [PLACES_LAYER_ID],
+		});
+		const canvas = map.getCanvas();
+		canvas.style.cursor = features.length > 0 ? "pointer" : "";
+	}, []);
 
 	useEffect(() => {
-		if (!mapInstance) {
+		if (!isMapReady || !mapRef.current) {
 			return;
 		}
 
 		let isActive = true;
 
 		if (!navigator.geolocation) {
-			setError(
-				"Geolocation is not supported by your browser. Showing Washington, DC instead."
-			);
+			setUserLocation(null);
+			setError(GEOLOCATION_ERROR_UNSUPPORTED);
 			return;
 		}
 
@@ -221,33 +217,19 @@ export default function MapComponent({
 					position.coords.longitude,
 					position.coords.latitude,
 				];
-				const userLocation = fromLonLat(userLonLat);
-				mapInstance.getView().setCenter(userLocation);
-				mapInstance.getView().setZoom(16);
-
-				const userFeature = new Feature({
-					geometry: new Point(userLocation),
+				setUserLocation(userLonLat);
+				mapRef.current?.easeTo({
+					center: userLonLat,
+					zoom: USER_LOCATION_ZOOM,
 				});
-				userFeature.setStyle(
-					new Style({
-						image: new Circle({
-							radius: 8,
-							fill: new Fill({ color: "#2b7fff" }),
-							stroke: new Stroke({ color: "#fff", width: 2 }),
-						}),
-					})
-				);
-
-				setUserLocationSource(new VectorSource({ features: [userFeature] }));
 				setError(null);
 			},
-			(_err) => {
+			() => {
 				if (!isActive) {
 					return;
 				}
-				setError(
-					"Unable to retrieve your location. Showing Washington, DC instead."
-				);
+				setUserLocation(null);
+				setError(GEOLOCATION_ERROR_UNAVAILABLE);
 			},
 			{
 				enableHighAccuracy: true,
@@ -259,7 +241,7 @@ export default function MapComponent({
 		return () => {
 			isActive = false;
 		};
-	}, [mapInstance]);
+	}, [isMapReady]);
 
 	const queryArgs = useMemo(() => {
 		if (!bounds || authLoading) {
@@ -275,29 +257,57 @@ export default function MapComponent({
 	const mapData = useConvexQuery(api.map.listPlacesForMap, queryArgs ?? "skip");
 
 	useEffect(() => {
+		if (queryArgs === undefined) {
+			setMarkers([]);
+			return;
+		}
 		if (mapData === undefined) {
 			return;
 		}
+		setMarkers(mapData?.markers ?? []);
+	}, [mapData, queryArgs]);
 
-		const source = placesSource;
+	const markersGeoJson = useMemo<FeatureCollection<Point, MarkerFeatureProperties>>(
+		() => ({
+			type: "FeatureCollection",
+			features: markers.map((marker) => ({
+				type: "Feature",
+				geometry: {
+					type: "Point",
+					coordinates: [marker.longitude, marker.latitude],
+				},
+				properties: {
+					markerData: marker,
+					isHighlighted: marker.isHighlighted,
+					isSaved: marker.isSaved,
+				},
+			})),
+		}),
+		[markers]
+	);
 
-		source.clear(true);
-		const markers = mapData?.markers ?? [];
-		if (markers.length === 0) {
-			return;
-		}
+	const userLocationSourceData = useMemo<FeatureCollection<Point> | null>(
+		() => {
+			if (!userLocation) {
+				return null;
+			}
 
-		const features = markers.map((marker) => {
-			const feature = new Feature({
-				geometry: new Point(fromLonLat([marker.longitude, marker.latitude])),
-			});
-			feature.set("markerData", marker);
-			feature.setStyle(getMarkerStyle(marker));
-			return feature;
-		});
-
-		source.addFeatures(features);
-	}, [mapData, placesSource]);
+			return {
+				type: "FeatureCollection",
+				features: [
+					{
+						type: "Feature",
+						geometry: {
+							type: "Point",
+							coordinates: userLocation,
+						},
+						properties: {},
+					},
+				],
+			};
+		},
+		[userLocation]
+	);
 
 	return (
 		<div className="relative h-full w-full">
@@ -310,10 +320,15 @@ export default function MapComponent({
 					<p>{error}</p>
 				</div>
 			)}
-			<OlReactMap
-				controls={[]}
-				interactions={interactions}
-				ref={handleMapMount}
+			<RMap
+				id="spot-map"
+				mapStyle={OSM_RASTER_STYLE}
+				initialCenter={DEFAULT_CENTER}
+				initialZoom={DEFAULT_ZOOM}
+				onLoad={handleMapLoad}
+				onMoveEnd={handleMoveEnd}
+				onClick={handleClick}
+				onMouseMove={handleMouseMove}
 				style={{
 					position: "absolute",
 					inset: 0,
@@ -321,13 +336,37 @@ export default function MapComponent({
 					height: "100%",
 				}}
 			>
-				<TileLayerComponent source={baseTileSource} />
-				<VectorLayerComponent source={placesSource} zIndex={10} />
-				{userLocationSource ? (
-					<VectorLayerComponent source={userLocationSource} zIndex={20} />
+				<RSource
+					key={PLACES_SOURCE_ID}
+					id={PLACES_SOURCE_ID}
+					type="geojson"
+					data={markersGeoJson}
+				/>
+				<RLayer
+					key={PLACES_LAYER_ID}
+					id={PLACES_LAYER_ID}
+					source={PLACES_SOURCE_ID}
+					type="circle"
+					paint={markerLayerPaint}
+				/>
+				{userLocationSourceData ? (
+					<>
+						<RSource
+							key={USER_LOCATION_SOURCE_ID}
+							id={USER_LOCATION_SOURCE_ID}
+							type="geojson"
+							data={userLocationSourceData}
+						/>
+						<RLayer
+							key={USER_LOCATION_LAYER_ID}
+							id={USER_LOCATION_LAYER_ID}
+							source={USER_LOCATION_SOURCE_ID}
+							type="circle"
+							paint={userLocationLayerPaint}
+						/>
+					</>
 				) : null}
-				<View center={defaultCenter} zoom={12} />
-			</OlReactMap>
+			</RMap>
 		</div>
 	);
 }
