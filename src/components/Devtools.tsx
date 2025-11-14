@@ -7,6 +7,8 @@ export default function Devtools() {
 		<TanStackDevtools
 			config={{
 				position: "bottom-right",
+				requireUrlFlag: true,
+				urlFlag: "devtools",
 			}}
 			plugins={[
 				{

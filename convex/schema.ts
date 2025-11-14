@@ -68,65 +68,6 @@ export default defineSchema({
 			)
 		),
 
-		// Opening hours (subset of OpeningHours shape)
-		regularOpeningHours: v.optional(
-			v.object({
-				openNow: v.optional(v.boolean()),
-				weekdayDescriptions: v.optional(v.array(v.string())),
-				periods: v.optional(
-					v.array(
-						v.object({
-							open: v.optional(
-								v.object({
-									day: v.optional(v.number()), // 0-6 per docs
-									hour: v.optional(v.number()),
-									minute: v.optional(v.number()),
-									date: v.optional(
-										v.object({
-											year: v.number(),
-											month: v.number(),
-											day: v.number(),
-										})
-									),
-								})
-							),
-							close: v.optional(
-								v.object({
-									day: v.optional(v.number()),
-									hour: v.optional(v.number()),
-									minute: v.optional(v.number()),
-									date: v.optional(
-										v.object({
-											year: v.number(),
-											month: v.number(),
-											day: v.number(),
-										})
-									),
-								})
-							),
-						})
-					)
-				),
-				secondaryHoursType: v.optional(v.string()),
-				specialDays: v.optional(
-					v.array(
-						v.object({
-							startDate: v.object({
-								year: v.number(),
-								month: v.number(),
-								day: v.number(),
-							}),
-							endDate: v.object({
-								year: v.number(),
-								month: v.number(),
-								day: v.number(),
-							}),
-						})
-					)
-				),
-			})
-		),
-
 		// Ratings (aggregate only; no userRatingCount)
 		rating: v.optional(v.number()),
 
@@ -204,46 +145,6 @@ export const validators = {
 						heightPx: v.number(),
 					})
 				)
-			),
-			regularOpeningHours: v.optional(
-				v.object({
-					openNow: v.optional(v.boolean()),
-					weekdayDescriptions: v.optional(v.array(v.string())),
-					periods: v.optional(
-						v.array(
-							v.object({
-								open: v.optional(
-									v.object({
-										day: v.optional(v.number()),
-										hour: v.optional(v.number()),
-										minute: v.optional(v.number()),
-										date: v.optional(
-											v.object({
-												year: v.number(),
-												month: v.number(),
-												day: v.number(),
-											})
-										),
-									})
-								),
-								close: v.optional(
-									v.object({
-										day: v.optional(v.number()),
-										hour: v.optional(v.number()),
-										minute: v.optional(v.number()),
-										date: v.optional(
-											v.object({
-												year: v.number(),
-												month: v.number(),
-												day: v.number(),
-											})
-										),
-									})
-								),
-							})
-						)
-					),
-				})
 			),
 			rating: v.optional(v.number()),
 			raw: v.record(v.string(), v.any()),

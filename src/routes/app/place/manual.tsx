@@ -44,7 +44,6 @@ type FormData = {
 	google_maps_uri: string;
 	rating: string;
 	user_ratings_total: string;
-	open_now: string;
 };
 
 const MAX_AUTOCOMPLETE_SUGGESTIONS = 3;
@@ -64,7 +63,6 @@ function createEmptyFormData(): FormData {
 		google_maps_uri: "",
 		rating: "",
 		user_ratings_total: "",
-		open_now: "",
 	};
 }
 
@@ -79,7 +77,6 @@ function placeDetailsToFormData(place: PlaceDetailsResponse): FormData {
 		google_maps_uri: place.google_maps_uri || "",
 		rating: place.rating?.toString() || "",
 		user_ratings_total: place.user_ratings_total?.toString() || "",
-		open_now: place.open_now?.toString() || "",
 	};
 }
 

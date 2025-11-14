@@ -1,7 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { AnimatePresence, motion } from "framer-motion";
-import { ListIcon, SearchIcon, SparklesIcon, XIcon } from "lucide-react";
+import {
+	ListIcon,
+	PlusIcon,
+	SearchIcon,
+	SparkleIcon,
+	XIcon,
+} from "lucide-react";
 import { type FormEvent, useCallback, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +41,7 @@ function RouteComponent() {
 	);
 
 	const handleManualAdd = () => {
-		navigate({ to: "/app/place/manual", search: { url: undefined } });
+		navigate({ to: "/app/search" });
 	};
 
 	const handleSaveSpotClick = () => {
@@ -143,7 +149,7 @@ function RouteComponent() {
 					</div>
 				)}
 			</div>
-			<div className="absolute bottom-0 left-0 flex w-full flex-col items-center justify-center gap-4 bg-linear-to-b from-transparent to-black/30 px-4 py-4">
+			<div className="absolute bottom-0 left-0 flex w-full flex-col items-center justify-center gap-4 bg-linear-to-b from-transparent to-black/30 px-4 pt-4 pb-12">
 				<div className="flex w-full justify-center">
 					<AnimatePresence initial={false} mode="wait">
 						{saveOptionsOpen ? (
@@ -153,24 +159,22 @@ function RouteComponent() {
 								exit={{ opacity: 0, y: 48 }}
 								initial={{ opacity: 0, y: 48 }}
 								key="expanded-save"
-								transition={{ duration: 0.25, ease: "easeOut" }}
+								transition={{ duration: 0.2, ease: "circInOut" }}
 							>
-								<Button
-									className="w-full shadow-lg"
-									onClick={handleManualAdd}
-									variant="primary"
+								{!showLinkForm && (
+									<Button
+										className="w-full shadow-lg"
+										onClick={handleManualAdd}
+										variant="secondary"
+									>
+										<SearchIcon className="size-4" />
+										Add manually
+									</Button>
+								)}
+								<div
+									className={`rounded-3xl bg-white/90 shadow-xl backdrop-blur-sm transition-all ${showLinkForm ? "p-4" : "p-0"}`}
 								>
-									Add manually
-								</Button>
-								<div className="rounded-3xl bg-white/90 p-4 shadow-xl backdrop-blur-sm">
 									<div className="flex flex-col gap-3">
-										<Button
-											className="w-full"
-											onClick={handleSaveViaLinkClick}
-											variant="primary"
-										>
-											Save via link
-										</Button>
 										<AnimatePresence initial={false} mode="wait">
 											{showLinkForm && (
 												<motion.form
@@ -188,7 +192,7 @@ function RouteComponent() {
 																setLinkError(null);
 															}
 														}}
-														placeholder="https://example.com/menu"
+														placeholder="https://example.com/contact"
 														ref={linkInputRef}
 														type="url"
 														value={linkUrl}
@@ -196,20 +200,28 @@ function RouteComponent() {
 													{linkError && (
 														<p className="text-red-500 text-sm">{linkError}</p>
 													)}
-													<Button className="w-full" type="submit">
-														Continue
-													</Button>
 												</motion.form>
 											)}
 										</AnimatePresence>
+										<Button
+											className="w-full"
+											onClick={
+												showLinkForm ? undefined : handleSaveViaLinkClick
+											}
+											type={showLinkForm ? "button" : "submit"}
+											variant="primary"
+										>
+											<SparkleIcon className="size-4" />
+											{showLinkForm ? "Continue" : "Paste a link"}
+										</Button>
 									</div>
 								</div>
 								<button
-									className="text-center text-sm text-white/80 underline-offset-4 hover:underline"
+									className="text-center font-bold text-red-500 text-sm underline-offset-4 hover:underline"
 									onClick={handleCloseSaveOptions}
 									type="button"
 								>
-									Nevermind
+									Cancel
 								</button>
 							</motion.div>
 						) : (
@@ -219,21 +231,19 @@ function RouteComponent() {
 								exit={{ opacity: 0, y: 48 }}
 								initial={{ opacity: 0, y: 48 }}
 								key="collapsed-save"
-								transition={{ duration: 0.25, ease: "easeOut" }}
+								transition={{ duration: 0.2, ease: "circInOut" }}
 							>
 								<Button
-									className="flex-1 shadow-lg"
+									className="inline-flex flex-1/2 shadow-lg"
 									onClick={handleSaveSpotClick}
 									variant="primary"
 								>
-									<SparklesIcon className="h-8 w-8" /> Save spot
+									<PlusIcon className="size-5" /> Save spot
 								</Button>
-								<Link className="flex-1" to="/app/my-spots">
-									<motion.div layoutId="my-spots">
-										<Button className="w-full shadow-lg">
-											<ListIcon className="h-8 w-8" /> My spots
-										</Button>
-									</motion.div>
+								<Link className="inline-flex flex-1/2" to="/app/my-spots">
+									<Button className="w-full shadow-lg">
+										<ListIcon className="size-4" /> My spots
+									</Button>
 								</Link>
 							</motion.div>
 						)}

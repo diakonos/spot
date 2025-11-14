@@ -14,9 +14,6 @@ export function convertPlaceToPlaceDetailsResponse(place: {
 	websiteUri?: string;
 	internationalPhoneNumber?: string;
 	googleMapsUri?: string;
-	regularOpeningHours?: {
-		openNow?: boolean;
-	};
 	raw?: Record<string, unknown>;
 }): {
 	id: string;
@@ -25,7 +22,6 @@ export function convertPlaceToPlaceDetailsResponse(place: {
 	location?: { lat: number; lng: number };
 	rating?: number;
 	user_ratings_total?: number;
-	open_now?: boolean;
 	photos?: Array<{ name: string; widthPx: number; heightPx: number }>;
 	website?: string;
 	phone?: string;
@@ -41,7 +37,6 @@ export function convertPlaceToPlaceDetailsResponse(place: {
 			typeof place.raw?.userRatingCount === "number"
 				? place.raw.userRatingCount
 				: undefined,
-		open_now: place.regularOpeningHours?.openNow,
 		photos: place.photos,
 		website: place.websiteUri,
 		phone: place.internationalPhoneNumber,

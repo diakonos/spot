@@ -194,24 +194,6 @@ function PlaceDetailsComponent() {
 							</div>
 						)}
 
-						{/* Open Now */}
-						{finalPlaceDetails.open_now !== undefined && (
-							<div
-								className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-medium text-sm ${
-									finalPlaceDetails.open_now
-										? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-										: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-								}`}
-							>
-								<span
-									className={`h-2 w-2 rounded-full ${
-										finalPlaceDetails.open_now ? "bg-green-600" : "bg-red-600"
-									}`}
-								/>
-								{finalPlaceDetails.open_now ? "Open Now" : "Closed"}
-							</div>
-						)}
-
 						{/* Contact Information */}
 						{(finalPlaceDetails.phone || finalPlaceDetails.website) && (
 							<div className="space-y-3">

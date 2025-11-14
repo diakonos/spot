@@ -29,7 +29,6 @@ export const fetchPlaceDetails = action({
 			"internationalPhoneNumber",
 			"nationalPhoneNumber",
 			"googleMapsUri",
-			"regularOpeningHours",
 			"primaryType",
 			"primaryTypeDisplayName",
 			"businessStatus",
@@ -98,51 +97,6 @@ export const fetchPlaceDetails = action({
 				widthPx: p.widthPx ?? 0,
 				heightPx: p.heightPx ?? 0,
 			})),
-			regularOpeningHours: place.regularOpeningHours
-				? {
-						openNow: place.regularOpeningHours.openNow ?? undefined,
-						weekdayDescriptions:
-							place.regularOpeningHours.weekdayDescriptions ?? undefined,
-						periods: place.regularOpeningHours.periods?.map((p) => ({
-							open:
-								p.open?.day && p.open.hour && p.open.minute
-									? {
-											day: p.open.day!,
-											hour: p.open.hour!,
-											minute: p.open.minute!,
-											date:
-												p.open.date?.day &&
-												p.open.date.year &&
-												p.open.date.month
-													? {
-															year: p.open.date.year!,
-															month: p.open.date.month!,
-															day: p.open.date.day!,
-														}
-													: undefined,
-										}
-									: undefined,
-							close:
-								p.close?.day && p.close.hour && p.close.minute
-									? {
-											day: p.close.day!,
-											hour: p.close.hour!,
-											minute: p.close.minute!,
-											date:
-												p.close.date?.day &&
-												p.close.date.year &&
-												p.close.date.month
-													? {
-															year: p.close.date.year!,
-															month: p.close.date.month!,
-															day: p.close.date.day!,
-														}
-													: undefined,
-										}
-									: undefined,
-						})),
-					}
-				: undefined,
 			rating: place.rating ?? undefined,
 			raw: place,
 		};

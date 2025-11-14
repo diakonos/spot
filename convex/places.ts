@@ -63,7 +63,6 @@ export const upsertPlace = internalMutation({
 				})
 			)
 		),
-		regularOpeningHours: v.optional(v.any()),
 		rating: v.optional(v.number()),
 		raw: v.optional(v.any()),
 	},
@@ -371,7 +370,6 @@ export const getPlaceDetailsWithSaveStatus = query({
 				location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
 				rating: v.optional(v.number()),
 				user_ratings_total: v.optional(v.number()),
-				open_now: v.optional(v.boolean()),
 				photos: v.optional(
 					v.array(
 						v.object({

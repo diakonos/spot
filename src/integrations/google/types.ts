@@ -78,7 +78,6 @@ export type GooglePlaceDetailsResponse = {
 	internationalPhoneNumber?: string;
 	nationalPhoneNumber?: string;
 	googleMapsUri?: string;
-	regularOpeningHours?: OpeningHours;
 	primaryType?: string;
 	primaryTypeDisplayName?: LocalizedText;
 	businessStatus?: BusinessStatus;
@@ -95,9 +94,6 @@ export type GooglePlacesTextSearchResponse = {
 		location?: LatLng;
 		rating?: number;
 		userRatingCount?: number;
-		regularOpeningHours?: {
-			openNow?: boolean;
-		};
 		photos?: Photo[];
 	}>;
 };
@@ -161,10 +157,8 @@ export type PlaceDetailsResponse = {
 	location?: { lat: number; lng: number };
 	rating?: number;
 	user_ratings_total?: number;
-	open_now?: boolean;
 	photos?: Array<{ name: string; widthPx: number; heightPx: number }>;
 	website?: string;
 	phone?: string;
 	google_maps_uri?: string;
 };
-

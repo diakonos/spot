@@ -84,7 +84,6 @@ export async function searchPlacesByText(
 						: undefined,
 					rating: place.rating ?? undefined,
 					user_ratings_total: place.userRatingCount ?? undefined,
-					opening_hours: place.regularOpeningHours ?? undefined,
 				}));
 				resolve({ results: transformedResults });
 			})
@@ -177,7 +176,6 @@ export async function getPlaceDetails(
 			"location",
 			"rating",
 			"userRatingCount",
-			"regularOpeningHours",
 			"photos",
 			"websiteURI",
 			"internationalPhoneNumber",
@@ -189,14 +187,6 @@ export async function getPlaceDetails(
 	try {
 		const result = await place.fetchFields(fetchRequest);
 		const fetchedPlace = result.place;
-
-		// Check if place is open now (async operation)
-		let openNow: boolean | undefined;
-		try {
-			openNow = await fetchedPlace.isOpen();
-		} catch {
-			// If isOpen fails, leave openNow as undefined
-		}
 
 		return {
 			id: fetchedPlace.id,
@@ -210,7 +200,6 @@ export async function getPlaceDetails(
 				: undefined,
 			rating: fetchedPlace.rating ?? undefined,
 			user_ratings_total: fetchedPlace.userRatingCount ?? undefined,
-			open_now: openNow,
 			photos: fetchedPlace.photos?.map((photo) => ({
 				name: photo.getURI() || "",
 				widthPx: photo.widthPx || 0,
