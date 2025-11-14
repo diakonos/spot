@@ -1,13 +1,14 @@
 // biome-ignore lint/performance/noNamespaceImport: Implemented according to documentation
 import * as Sentry from "@sentry/tanstackstart-react";
-import { TanStackDevtools } from "@tanstack/react-devtools";
-import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { LayoutGroup } from "framer-motion";
-
 import { MapViewStateProvider } from "@/context/MapViewContext";
 import appCss from "../styles.css?url";
+
+const Devtools =
+	process.env.NODE_ENV === "development"
+		? (await import("@/components/Devtools")).default
+		: () => null;
 
 export const Route = Sentry.wrapCreateRootRouteWithSentry(createRootRoute)({
 	head: () => ({
@@ -44,21 +45,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<MapViewStateProvider>
 					<LayoutGroup>{children}</LayoutGroup>
 				</MapViewStateProvider>
-				<TanStackDevtools
-					config={{
-						position: "bottom-right",
-					}}
-					plugins={[
-						{
-							name: "Tanstack Router",
-							render: <TanStackRouterDevtoolsPanel />,
-						},
-						{
-							name: "React Query",
-							render: <ReactQueryDevtoolsPanel />,
-						},
-					]}
-				/>
+				<Devtools />
 				<Scripts />
 			</body>
 		</html>
