@@ -1,6 +1,6 @@
 import { cronJobs } from "convex/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { internalAction, internalQuery } from "./_generated/server";
 
 export const listAllSavedPlaces = internalQuery({
@@ -28,9 +28,7 @@ export const syncSavedPlaces = internalAction({
 	handler: async (ctx) => {
 		// Sync ONLY places that are actually saved by someone
 		const saves = await ctx.runQuery(internal.schedule.listAllSavedPlaces, {});
-		const uniquePlaceIds = Array.from(
-			new Set(saves.map((s: { placeId: any }) => s.placeId))
-		);
+		const uniquePlaceIds = Array.from(new Set(saves.map((s) => s.placeId)));
 
 		// Throttle/batch if large
 		const BATCH_SIZE = 500;
@@ -42,7 +40,7 @@ export const syncSavedPlaces = internalAction({
 			if (!placeData) {
 				continue;
 			}
-			await ctx.runAction(api.places.upsertPlaceFromGoogle, {
+			await ctx.runAction(internal.places.upsertPlaceFromGoogle, {
 				providerPlaceId: placeData.providerPlaceId,
 			});
 		}

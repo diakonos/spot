@@ -3,12 +3,12 @@
 import { v } from "convex/values";
 import type { GooglePlaceDetailsResponse } from "../src/integrations/google/types";
 import { createLogger } from "../src/lib/logger";
-import { action } from "./_generated/server";
+import { internalAction } from "./_generated/server";
 import { validators } from "./schema";
 
 const logger = createLogger("convex/google");
 
-export const fetchPlaceDetails = action({
+export const fetchPlaceDetails = internalAction({
 	args: { placeId: v.string() },
 	returns: validators.place.full,
 	handler: async (_ctx, { placeId }) => {
@@ -66,7 +66,7 @@ export const fetchPlaceDetails = action({
 			addressComponents: place.addressComponents
 				?.filter((c) => !!c.longText)
 				.map((c) => ({
-					longText: c.longText!,
+					longText: c.longText,
 					shortText: c.shortText ?? undefined,
 					types: c.types ?? [],
 					languageCode: c.languageCode ?? "en-US",

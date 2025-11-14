@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-	ListIcon,
+	CircleUserRoundIcon,
 	PlusIcon,
 	SearchIcon,
 	SparkleIcon,
@@ -238,11 +238,11 @@ function RouteComponent() {
 									onClick={handleSaveSpotClick}
 									variant="primary"
 								>
-									<PlusIcon className="size-5" /> Save spot
+									<PlusIcon className="size-6" /> Save spot
 								</Button>
-								<Link className="inline-flex flex-1/2" to="/app/my-spots">
+								<Link className="inline-flex flex-1/2" to="/app/profile">
 									<Button className="w-full shadow-lg">
-										<ListIcon className="size-4" /> My spots
+										<CircleUserRoundIcon className="size-5" /> Profile
 									</Button>
 								</Link>
 							</motion.div>

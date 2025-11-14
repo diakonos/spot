@@ -1,5 +1,18 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
+
+export const getByWorkOSId = internalQuery({
+	args: {
+		workosId: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const user = await ctx.db
+			.query("users")
+			.withIndex("by_workos_id", (q) => q.eq("workosId", args.workosId))
+			.unique();
+		return user;
+	},
+});
 
 export const upsertFromWorkOS = internalMutation({
 	args: {

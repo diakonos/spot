@@ -1,19 +1,19 @@
+import {
+	paginationOptsValidator,
+	paginationResultValidator,
+} from "convex/server";
 import { v } from "convex/values";
-import { createLogger } from "../src/lib/logger";
-import { STALE_THRESHOLD_MS } from "../src/lib/settings";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
-	action,
+	internalAction,
 	internalMutation,
 	internalQuery,
-	mutation,
 	query,
 } from "./_generated/server";
 import { syncPlaceToGeospatial } from "./fn/geospatial";
 import { convertPlaceToPlaceDetailsResponse } from "./fn/places";
-
-const logger = createLogger("convex/places");
+import { authedMutation, authedQuery } from "./functions";
 
 /**
  * Internal mutation to upsert a place in the database.
@@ -97,10 +97,11 @@ export const upsertPlace = internalMutation({
  * Action to fetch place details from Google and upsert into the database.
  * This is an action because it needs to call another action (fetchPlaceDetails).
  */
-export const upsertPlaceFromGoogle = action({
+export const upsertPlaceFromGoogle = internalAction({
 	args: { providerPlaceId: v.string() },
+	returns: v.null(),
 	handler: async (ctx, { providerPlaceId }) => {
-		const details = await ctx.runAction(api.google.fetchPlaceDetails, {
+		const details = await ctx.runAction(internal.google.fetchPlaceDetails, {
 			placeId: providerPlaceId,
 		});
 
@@ -142,94 +143,14 @@ export const savePlaceForUser = internalMutation({
 });
 
 /**
- * Mutation to save a place for a user.
- * Accepts place data from the frontend (from Google API) and saves immediately.
- * Then schedules an action to fetch canonical data from Google in the background.
- */
-export const savePlaceForOwner = mutation({
-	args: {
-		userId: v.id("users"),
-		// Place data from Google API (partial, will be enriched by background sync)
-		providerPlaceId: v.string(),
-		name: v.string(),
-		displayName: v.optional(
-			v.object({ text: v.string(), languageCode: v.optional(v.string()) })
-		),
-		formattedAddress: v.optional(v.string()),
-		location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
-		rating: v.optional(v.number()),
-		// User-specific data
-		tags: v.optional(v.array(v.string())),
-		myRating: v.optional(v.number()),
-		note: v.optional(v.string()),
-	},
-	returns: v.id("saved_places"),
-	handler: async (ctx, args) => {
-		// First, upsert the place with the data we have from the frontend
-		const existingPlace = await ctx.db
-			.query("places")
-			.withIndex("by_provider_id", (q) =>
-				q.eq("provider", "google").eq("providerPlaceId", args.providerPlaceId)
-			)
-			.first();
-
-		const placeData = {
-			provider: "google" as const,
-			providerPlaceId: args.providerPlaceId,
-			name: args.name,
-			displayName: args.displayName,
-			formattedAddress: args.formattedAddress,
-			location: args.location,
-			rating: args.rating,
-			lastSyncedAt: Date.now(),
-		};
-
-		let placeId: Id<"places">;
-		if (existingPlace) {
-			await ctx.db.patch(existingPlace._id, placeData);
-			placeId = existingPlace._id;
-		} else {
-			placeId = await ctx.db.insert("places", placeData);
-		}
-
-		await syncPlaceToGeospatial(ctx, placeId);
-
-		// Save the place for the user
-		const existingSave = await ctx.db
-			.query("saved_places")
-			.withIndex("by_user_place", (q) =>
-				q.eq("userId", args.userId).eq("placeId", placeId)
-			)
-			.first();
-
-		const savedPlaceId = existingSave
-			? existingSave._id
-			: await ctx.db.insert("saved_places", {
-					userId: args.userId,
-					placeId,
-					tags: args.tags ?? [],
-					myRating: args.myRating,
-					note: args.note,
-				});
-
-		// Schedule background action to fetch canonical data from Google
-		await ctx.scheduler.runAfter(0, api.places.syncPlaceFromGoogle, {
-			providerPlaceId: args.providerPlaceId,
-		});
-
-		return savedPlaceId;
-	},
-});
-
-/**
  * Action to sync place data from Google API.
  * Called in the background after a place is saved.
  */
-export const syncPlaceFromGoogle = action({
+export const syncPlaceFromGoogle = internalAction({
 	args: { providerPlaceId: v.string() },
 	returns: v.null(),
 	handler: async (ctx, { providerPlaceId }) => {
-		const details = await ctx.runAction(api.google.fetchPlaceDetails, {
+		const details = await ctx.runAction(internal.google.fetchPlaceDetails, {
 			placeId: providerPlaceId,
 		});
 
@@ -238,69 +159,69 @@ export const syncPlaceFromGoogle = action({
 	},
 });
 
-export const listSavedPlaces = query({
-	args: { userId: v.id("users") },
-	handler: async (ctx, { userId }) => {
-		const saves = await ctx.db
-			.query("saved_places")
-			.withIndex("by_user", (q) => q.eq("userId", userId))
-			.collect();
-		const places = await Promise.all(saves.map((s) => ctx.db.get(s.placeId)));
-		return saves.map((s, i) => ({
-			save: s,
-			place: places[i],
-		}));
-	},
-});
-
-export const listSavedPlacesForCurrentUser = query({
-	args: {},
-	handler: async (ctx) => {
-		const identity = await ctx.auth.getUserIdentity();
-		if (!identity) {
-			return [];
-		}
-
-		// Find user by workosId
-		const user = await ctx.db
-			.query("users")
-			.withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
-			.first();
-
-		if (!user) {
-			return [];
-		}
-
-		const saves = await ctx.db
-			.query("saved_places")
-			.withIndex("by_user", (q) => q.eq("userId", user._id))
-			.collect();
-		const places = await Promise.all(saves.map((s) => ctx.db.get(s.placeId)));
-		return saves.map((s, i) => ({
-			save: s,
-			place: places[i],
-		}));
-	},
-});
-
-export const updateSavedPlace = mutation({
-	args: {
-		id: v.id("saved_places"),
+const savedPlaceListItemValidator = v.object({
+	save: v.object({
+		_id: v.id("saved_places"),
+		_creationTime: v.number(),
+		userId: v.id("users"),
+		placeId: v.id("places"),
 		tags: v.optional(v.array(v.string())),
 		myRating: v.optional(v.number()),
 		note: v.optional(v.string()),
-	},
-	handler: async (ctx, { id, ...rest }) => {
-		await ctx.db.patch(id, rest);
-		return null;
-	},
+	}),
+	place: v.union(
+		v.null(),
+		v.object({
+			_id: v.id("places"),
+			_creationTime: v.number(),
+			providerPlaceId: v.string(),
+			name: v.string(),
+			formattedAddress: v.optional(v.string()),
+			rating: v.optional(v.number()),
+		})
+	),
 });
 
-export const removeSavedPlace = mutation({
-	args: { id: v.id("saved_places") },
-	handler: async (ctx, { id }) => {
-		await ctx.db.delete(id);
-		return null;
+export const listSavedPlacesForCurrentUser = authedQuery({
+	args: {
+		paginationOpts: paginationOptsValidator,
+	},
+	returns: paginationResultValidator(savedPlaceListItemValidator),
+	handler: async (ctx, { paginationOpts }) => {
+		const saves = await ctx.db
+			.query("saved_places")
+			.withIndex("by_user", (q) => q.eq("userId", ctx.userId as Id<"users">))
+			.order("desc")
+			.paginate(paginationOpts);
+
+		const places = await Promise.all(
+			saves.page.map(async (save) => {
+				const place = await ctx.db.get(save.placeId);
+				if (!place) {
+					return null;
+				}
+
+				return {
+					_id: place._id,
+					_creationTime: place._creationTime,
+					providerPlaceId: place.providerPlaceId,
+					name: place.name,
+					formattedAddress: place.formattedAddress,
+					rating: place.rating,
+				};
+			})
+		);
+
+		return {
+			page: saves.page.map((save, index) => ({
+				save,
+				place: places[index],
+			})),
+			isDone: saves.isDone,
+			continueCursor: saves.continueCursor,
+			splitCursor: saves.splitCursor ?? null,
+			pageStatus: saves.pageStatus ?? null,
+		};
 	},
 });
 
@@ -308,12 +229,12 @@ export const removeSavedPlace = mutation({
  * Action to revalidate a place by fetching fresh data from Google.
  * Called automatically by the query when stale data is detected.
  */
-export const revalidateGooglePlace = action({
+export const revalidateGooglePlace = internalAction({
 	args: { providerPlaceId: v.string() },
 	returns: v.null(),
 	handler: async (ctx, { providerPlaceId }) => {
 		// Fetch fresh data from Google and upsert
-		await ctx.runAction(api.places.upsertPlaceFromGoogle, {
+		await ctx.runAction(internal.places.upsertPlaceFromGoogle, {
 			providerPlaceId,
 		});
 
@@ -434,39 +355,11 @@ export const getPlaceDetailsWithSaveStatus = query({
 	},
 });
 
-export const revalidatePlace = mutation({
-	args: { providerPlaceId: v.string() },
-	returns: v.null(),
-	handler: async (ctx, { providerPlaceId }) => {
-		const place = await ctx.db
-			.query("places")
-			.withIndex("by_provider_id", (q) =>
-				q.eq("provider", "google").eq("providerPlaceId", providerPlaceId)
-			)
-			.first();
-
-		if (!place) {
-			logger.warn(`Place ${providerPlaceId} not found`);
-			return null;
-		}
-
-		// Check if data is stale and trigger revalidation in background
-		const now = Date.now();
-		const isStale = now - place.lastSyncedAt >= STALE_THRESHOLD_MS;
-
-		if (isStale) {
-			await ctx.scheduler.runAfter(0, api.places.revalidateGooglePlace, {
-				providerPlaceId,
-			});
-		}
-	},
-});
-
 /**
  * Mutation to save a place for the current authenticated user.
  * If the place doesn't exist in the database, it will be created from the provided data.
  */
-export const savePlaceForCurrentUser = mutation({
+export const savePlaceForCurrentUser = authedMutation({
 	args: {
 		// Place data from Google API (may be partial)
 		providerPlaceId: v.string(),
@@ -525,7 +418,7 @@ export const savePlaceForCurrentUser = mutation({
 			placeId = await ctx.db.insert("places", placeData);
 
 			// Schedule background action to fetch canonical data from Google
-			await ctx.scheduler.runAfter(0, api.places.syncPlaceFromGoogle, {
+			await ctx.scheduler.runAfter(0, internal.places.syncPlaceFromGoogle, {
 				providerPlaceId: args.providerPlaceId,
 			});
 		}

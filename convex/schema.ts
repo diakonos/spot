@@ -88,6 +88,27 @@ export default defineSchema({
 	})
 		.index("by_user", ["userId"])
 		.index("by_user_place", ["userId", "placeId"]),
+
+	place_lists: defineTable({
+		userId: v.id("users"),
+		name: v.string(),
+		slug: v.string(),
+		description: v.optional(v.string()),
+		icon: v.optional(v.string()),
+		visibility: v.union(v.literal("private"), v.literal("public")),
+	})
+		.index("by_user", ["userId"])
+		.index("by_slug", ["slug"]),
+
+	place_list_entries: defineTable({
+		listId: v.id("place_lists"),
+		savedPlaceId: v.id("saved_places"),
+		placeId: v.id("places"),
+		note: v.optional(v.string()),
+		position: v.number(),
+	})
+		.index("by_list_and_position", ["listId", "position"])
+		.index("by_saved_place_and_list", ["savedPlaceId", "listId"]),
 });
 
 export const validators = {
@@ -150,4 +171,24 @@ export const validators = {
 			raw: v.record(v.string(), v.any()),
 		}),
 	},
+	placeList: v.object({
+		userId: v.id("users"),
+		name: v.string(),
+		slug: v.string(),
+		description: v.optional(v.string()),
+		iconColor: v.optional(v.string()),
+		coverPhotoId: v.optional(v.id("_storage")),
+		visibility: v.union(
+			v.literal("private"),
+			v.literal("workspace"),
+			v.literal("public")
+		),
+	}),
+	placeListEntry: v.object({
+		listId: v.id("place_lists"),
+		savedPlaceId: v.id("saved_places"),
+		placeId: v.id("places"),
+		note: v.optional(v.string()),
+		position: v.number(),
+	}),
 };

@@ -11,6 +11,8 @@
 import type * as crawl from "../crawl.js";
 import type * as fn_geospatial from "../fn/geospatial.js";
 import type * as fn_places from "../fn/places.js";
+import type * as fn_users from "../fn/users.js";
+import type * as functions from "../functions.js";
 import type * as geospatial from "../geospatial.js";
 import type * as google from "../google.js";
 import type * as http from "../http.js";
@@ -30,6 +32,8 @@ declare const fullApi: ApiFromModules<{
   crawl: typeof crawl;
   "fn/geospatial": typeof fn_geospatial;
   "fn/places": typeof fn_places;
+  "fn/users": typeof fn_users;
+  functions: typeof functions;
   geospatial: typeof geospatial;
   google: typeof google;
   http: typeof http;

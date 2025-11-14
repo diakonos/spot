@@ -5,7 +5,7 @@ import { v } from "convex/values";
 import { z } from "zod";
 import type { PlaceDetailsResponse } from "../src/integrations/google/types";
 import { createLogger } from "../src/lib/logger";
-import { action } from "./_generated/server";
+import { authedAction } from "./functions";
 
 const logger = createLogger("convex/crawl");
 
@@ -13,7 +13,7 @@ const logger = createLogger("convex/crawl");
  * Crawl a URL and attempt to extract place-like information using Firecrawl's structured extraction.
  * Returns a structure compatible with PlaceDetailsResponse from Google Places API.
  */
-export const firecrawlUrlToPlace = action({
+export const firecrawlUrlToPlace = authedAction({
 	args: { url: v.string() },
 	handler: async (_ctx, { url }): Promise<Partial<PlaceDetailsResponse>> => {
 		// Validate URL format

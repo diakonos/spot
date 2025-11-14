@@ -1,18 +1,45 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery as useConvexQuery } from "convex/react";
+import {
+	createFileRoute,
+	Link,
+	useCanGoBack,
+	useNavigate,
+	useRouter,
+} from "@tanstack/react-router";
+import { useAuth } from "@workos/authkit-tanstack-react-start/client";
+import { usePaginatedQuery } from "convex/react";
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { useMapViewState } from "@/context/MapViewContext";
 import { api } from "../../../convex/_generated/api";
+import { createLogger } from "../../lib/logger";
+
+const logger = createLogger("src/routes/app/my-spots");
 
 export const Route = createFileRoute("/app/my-spots")({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
+	const { user } = useAuth();
 	const navigate = useNavigate();
-	const savedPlaces = useConvexQuery(api.places.listSavedPlacesForCurrentUser);
+	const router = useRouter();
+	const canGoBack = useCanGoBack();
+	const {
+		results: savedPlaces,
+		status,
+		loadMore,
+	} = usePaginatedQuery(
+		api.places.listSavedPlacesForCurrentUser,
+		user ? {} : "skip",
+		{ initialNumItems: 10 }
+	);
 	const { setHighlight } = useMapViewState();
+	const initialLoading = savedPlaces === undefined;
+	const showLoadMore =
+		savedPlaces !== undefined &&
+		savedPlaces.length > 0 &&
+		(status === "CanLoadMore" || status === "LoadingMore");
+	const loadingMore = status === "LoadingMore";
 
 	return (
 		<motion.div
@@ -23,7 +50,9 @@ function RouteComponent() {
 				<button
 					aria-label="Go back"
 					className="flex items-center justify-center rounded-full p-2 text-white transition-colors hover:bg-blue-600"
-					onClick={() => navigate({ to: "/app" })}
+					onClick={() =>
+						canGoBack ? router.history.back() : navigate({ to: "/app" })
+					}
 					type="button"
 				>
 					<ArrowLeft className="h-5 w-5" />
@@ -32,7 +61,7 @@ function RouteComponent() {
 			</div>
 
 			<div className="px-4 py-6">
-				{savedPlaces === undefined && (
+				{initialLoading && (
 					<div className="py-8 text-center text-white/80">
 						Loading your spots...
 					</div>
@@ -97,6 +126,20 @@ function RouteComponent() {
 							);
 						})}
 					</ul>
+				)}
+				{showLoadMore && (
+					<div className="mt-6 text-center">
+						<button
+							className="rounded-full border border-white/30 px-4 py-2 font-semibold text-sm text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+							disabled={status !== "CanLoadMore"}
+							onClick={() => {
+								loadMore(10);
+							}}
+							type="button"
+						>
+							{loadingMore ? "Loading more..." : "Load more"}
+						</button>
+					</div>
 				)}
 			</div>
 		</motion.div>
