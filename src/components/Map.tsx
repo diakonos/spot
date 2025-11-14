@@ -3,14 +3,14 @@
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { useQuery as useConvexQuery } from "convex/react";
 import type { FeatureCollection, Point } from "geojson";
-import { RGeolocateControl, RLayer, RMap, RSource } from "maplibre-react-components";
 import type {
 	CircleLayerSpecification,
-	Map as MapLibreMap,
 	MapGeoJSONFeature,
+	Map as MapLibreMap,
 	MapMouseEvent,
 	StyleSpecification,
 } from "maplibre-gl";
+import { RLayer, RMap, RSource } from "maplibre-react-components";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { coordinatesEqual } from "@/lib/geospatial";
@@ -50,7 +50,7 @@ const USER_LOCATION_LAYER_ID = "user-location-layer";
 const GEOLOCATION_POSITION_OPTIONS: PositionOptions = {
 	enableHighAccuracy: true,
 	timeout: 15_000,
-	maximumAge: 5_000,
+	maximumAge: 5000,
 };
 
 const OSM_RASTER_STYLE: StyleSpecification = {
@@ -96,12 +96,7 @@ const markerLayerPaint = {
 		"#be123c",
 		"#0f172a",
 	],
-	"circle-stroke-width": [
-		"case",
-		["==", ["get", "isHighlighted"], true],
-		3,
-		2,
-	],
+	"circle-stroke-width": ["case", ["==", ["get", "isHighlighted"], true], 3, 2],
 } as CircleLayerSpecification["paint"];
 
 const userLocationLayerPaint = {
@@ -207,8 +202,8 @@ export default function MapComponent({
 		setUserLocation((prev) => {
 			if (
 				prev &&
-				Math.abs(prev[0] - location[0]) < 0.000001 &&
-				Math.abs(prev[1] - location[1]) < 0.000001
+				Math.abs(prev[0] - location[0]) < 1e-6 &&
+				Math.abs(prev[1] - location[1]) < 1e-6
 			) {
 				return prev;
 			}
@@ -309,34 +304,37 @@ export default function MapComponent({
 		};
 	}, [isMapReady, startGeolocation]);
 
-	useEffect(() => {
-		return () => {
+	useEffect(
+		() => () => {
 			if (geoWatchIdRef.current !== null) {
 				navigator.geolocation.clearWatch(geoWatchIdRef.current);
 				geoWatchIdRef.current = null;
 			}
-		};
-	}, []);
+		},
+		[]
+	);
 
 	useEffect(() => {
-		if (!isMapReady || !mapRef.current) {
+		if (!isMapReady) {
 			return;
 		}
 		const map = mapRef.current;
+		if (!map) {
+			return;
+		}
 
-		const handleGeolocate = (event: Event & {
-			coords?: GeolocationCoordinates;
-			data?: GeolocationPosition;
-		}) => {
+		const handleGeolocate = (
+			event: Event & {
+				coords?: GeolocationCoordinates;
+				data?: GeolocationPosition;
+			}
+		) => {
 			const position =
 				event.coords ?? (event.data ? event.data.coords : undefined);
 			if (!position) {
 				return;
 			}
-			const coord: [number, number] = [
-				position.longitude,
-				position.latitude,
-			];
+			const coord: [number, number] = [position.longitude, position.latitude];
 			setError(null);
 			updateUserLocation(coord);
 		};
@@ -371,7 +369,9 @@ export default function MapComponent({
 		setMarkers(mapData?.markers ?? []);
 	}, [mapData, queryArgs]);
 
-	const markersGeoJson = useMemo<FeatureCollection<Point, MarkerFeatureProperties>>(
+	const markersGeoJson = useMemo<
+		FeatureCollection<Point, MarkerFeatureProperties>
+	>(
 		() => ({
 			type: "FeatureCollection",
 			features: markers.map((marker) => ({
@@ -390,8 +390,8 @@ export default function MapComponent({
 		[markers]
 	);
 
-	const userLocationSourceData = useMemo<FeatureCollection<Point> | null>(
-		() => {
+	const userLocationSourceData =
+		useMemo<FeatureCollection<Point> | null>(() => {
 			if (!userLocation) {
 				return null;
 			}
@@ -409,9 +409,7 @@ export default function MapComponent({
 					},
 				],
 			};
-		},
-		[userLocation]
-	);
+		}, [userLocation]);
 
 	return (
 		<div className="relative h-full w-full">
@@ -426,13 +424,13 @@ export default function MapComponent({
 			)}
 			<RMap
 				id="spot-map"
-				mapStyle={OSM_RASTER_STYLE}
 				initialCenter={DEFAULT_CENTER}
 				initialZoom={DEFAULT_ZOOM}
-				onLoad={handleMapLoad}
-				onMoveEnd={handleMoveEnd}
+				mapStyle={OSM_RASTER_STYLE}
 				onClick={handleClick}
+				onLoad={handleMapLoad}
 				onMouseMove={handleMouseMove}
+				onMoveEnd={handleMoveEnd}
 				style={{
 					position: "absolute",
 					inset: 0,
@@ -440,41 +438,33 @@ export default function MapComponent({
 					height: "100%",
 				}}
 			>
-				<RGeolocateControl
-					key="geolocate-control"
-					position="top-right"
-					trackUserLocation
-					showAccuracyCircle={false}
-					showUserLocation={false}
-					positionOptions={GEOLOCATION_POSITION_OPTIONS}
-				/>
 				<RSource
-					key={PLACES_SOURCE_ID}
-					id={PLACES_SOURCE_ID}
-					type="geojson"
 					data={markersGeoJson}
+					id={PLACES_SOURCE_ID}
+					key={PLACES_SOURCE_ID}
+					type="geojson"
 				/>
 				<RLayer
-					key={PLACES_LAYER_ID}
 					id={PLACES_LAYER_ID}
+					key={PLACES_LAYER_ID}
+					paint={markerLayerPaint}
 					source={PLACES_SOURCE_ID}
 					type="circle"
-					paint={markerLayerPaint}
 				/>
 				{userLocationSourceData ? (
 					<>
 						<RSource
-							key={USER_LOCATION_SOURCE_ID}
-							id={USER_LOCATION_SOURCE_ID}
-							type="geojson"
 							data={userLocationSourceData}
+							id={USER_LOCATION_SOURCE_ID}
+							key={USER_LOCATION_SOURCE_ID}
+							type="geojson"
 						/>
 						<RLayer
-							key={USER_LOCATION_LAYER_ID}
 							id={USER_LOCATION_LAYER_ID}
+							key={USER_LOCATION_LAYER_ID}
+							paint={userLocationLayerPaint}
 							source={USER_LOCATION_SOURCE_ID}
 							type="circle"
-							paint={userLocationLayerPaint}
 						/>
 					</>
 				) : null}

@@ -2,10 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { motion } from "framer-motion";
 import { ListIcon, SearchIcon, SparklesIcon, XIcon } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { Button } from "@/components/Button";
 import { useMapViewState } from "@/context/MapViewContext";
-import { cn } from "@/lib/utils";
 import type { MapMarker } from "@/types/geospatial";
 import MapComponent from "../../components/Map";
 
@@ -15,7 +14,7 @@ export const Route = createFileRoute("/app/")({
 
 function RouteComponent() {
 	const { user } = useAuth();
-	const { mode, setMode, highlight, setHighlight } = useMapViewState();
+	const { mode, highlight, setHighlight } = useMapViewState();
 
 	const handleMarkerSelect = useCallback(
 		(marker: MapMarker) => {
@@ -26,15 +25,6 @@ function RouteComponent() {
 			});
 		},
 		[setHighlight]
-	);
-
-	const modeOptions = useMemo(
-		() => [
-			{ key: "saved" as const, label: "Saved" },
-			{ key: "all" as const, label: "All" },
-			{ key: "none" as const, label: "None" },
-		],
-		[]
 	);
 
 	return (
@@ -51,23 +41,16 @@ function RouteComponent() {
 			</motion.div>
 			<div className="-translate-x-1/2 absolute top-4 left-1/2 z-10 w-full max-w-xl px-4">
 				<div className="flex flex-col gap-3">
-					<div className="inline-flex items-center justify-center gap-2 rounded-full bg-white/90 p-1.5 text-slate-700 shadow-lg backdrop-blur">
-						{modeOptions.map(({ key, label }) => (
-							<button
-								className={cn(
-									"rounded-full px-4 py-1.5 font-medium text-sm transition",
-									mode === key
-										? "bg-blue-600 text-white shadow"
-										: "text-slate-600 hover:bg-blue-50"
-								)}
-								key={key}
-								onClick={() => setMode(key)}
-								type="button"
+					<Link to="/app/search">
+						<motion.div layoutId="searchbar">
+							<Button
+								className="inline-flex w-full justify-start text-muted-foreground shadow-lg"
+								variant="inputStyle"
 							>
-								{label}
-							</button>
-						))}
-					</div>
+								<SearchIcon className="ml-4 h-8 w-8" /> Search for spots
+							</Button>
+						</motion.div>
+					</Link>
 					{highlight && (
 						<div className="flex items-center justify-between gap-3 rounded-lg bg-white/90 px-3 py-2 text-slate-700 shadow-lg backdrop-blur">
 							<div className="min-w-0">
@@ -98,26 +81,18 @@ function RouteComponent() {
 				)}
 			</div>
 			<div className="absolute bottom-0 left-0 flex w-full flex-col justify-center gap-4 bg-linear-to-b from-transparent to-black/30 px-4 py-4">
-				<Link to="/app/search">
-					<motion.div layoutId="searchbar">
-						<Button
-							className="w-full text-muted-foreground shadow-lg"
-							variant="inputStyle"
-						>
-							<SearchIcon className="h-8 w-8" /> Search for spots
-						</Button>
-					</motion.div>
-				</Link>
-				<Button className="shadow-lg" variant="primary">
-					<SparklesIcon className="h-8 w-8" /> Save new spot from link
-				</Button>
-				<Link to="/app/my-spots">
-					<motion.div layoutId="my-spots">
-						<Button className="w-full shadow-lg">
-							<ListIcon className="h-8 w-8" /> View all my spots
-						</Button>
-					</motion.div>
-				</Link>
+				<div className="flex w-full gap-3">
+					<Button className="flex-1 shadow-lg" variant="primary">
+						<SparklesIcon className="h-8 w-8" /> Save spot
+					</Button>
+					<Link className="flex-1" to="/app/my-spots">
+						<motion.div layoutId="my-spots">
+							<Button className="w-full shadow-lg">
+								<ListIcon className="h-8 w-8" /> My spots
+							</Button>
+						</motion.div>
+					</Link>
+				</div>
 			</div>
 		</div>
 	);
