@@ -3,7 +3,7 @@
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { useQuery as useConvexQuery } from "convex/react";
 import type { FeatureCollection, Point } from "geojson";
-import { RLayer, RMap, RSource } from "maplibre-react-components";
+import { RGeolocateControl, RLayer, RMap, RSource } from "maplibre-react-components";
 import type {
 	CircleLayerSpecification,
 	Map as MapLibreMap,
@@ -41,10 +41,17 @@ const GEOLOCATION_ERROR_UNSUPPORTED =
 	"Geolocation is not supported by your browser. Showing Washington, DC instead.";
 const GEOLOCATION_ERROR_UNAVAILABLE =
 	"Unable to retrieve your location. Showing Washington, DC instead.";
+const GEOLOCATION_ERROR_PERMISSION_DENIED =
+	"Location access is blocked. Enable location permissions in your browser settings to center the map.";
 const PLACES_SOURCE_ID = "places";
 const PLACES_LAYER_ID = "places-layer";
 const USER_LOCATION_SOURCE_ID = "user-location";
 const USER_LOCATION_LAYER_ID = "user-location-layer";
+const GEOLOCATION_POSITION_OPTIONS: PositionOptions = {
+	enableHighAccuracy: true,
+	timeout: 15_000,
+	maximumAge: 5_000,
+};
 
 const OSM_RASTER_STYLE: StyleSpecification = {
 	version: 8,
@@ -118,6 +125,8 @@ export default function MapComponent({
 	);
 	const [isMapReady, setIsMapReady] = useState(false);
 	const mapRef = useRef<MapLibreMap | null>(null);
+	const hasCenteredOnUserRef = useRef(false);
+	const geoWatchIdRef = useRef<number | null>(null);
 	const [markers, setMarkers] = useState<MapMarker[]>([]);
 
 	const onMarkerSelectRef = useRef(onMarkerSelect);
@@ -194,54 +203,149 @@ export default function MapComponent({
 		canvas.style.cursor = features.length > 0 ? "pointer" : "";
 	}, []);
 
-	useEffect(() => {
-		if (!isMapReady || !mapRef.current) {
-			return;
+	const updateUserLocation = useCallback((location: [number, number]) => {
+		setUserLocation((prev) => {
+			if (
+				prev &&
+				Math.abs(prev[0] - location[0]) < 0.000001 &&
+				Math.abs(prev[1] - location[1]) < 0.000001
+			) {
+				return prev;
+			}
+			return location;
+		});
+
+		if (!hasCenteredOnUserRef.current) {
+			mapRef.current?.easeTo({
+				center: location,
+				zoom: USER_LOCATION_ZOOM,
+			});
+			hasCenteredOnUserRef.current = true;
 		}
+	}, []);
 
-		let isActive = true;
-
+	const startGeolocation = useCallback(() => {
 		if (!navigator.geolocation) {
 			setUserLocation(null);
 			setError(GEOLOCATION_ERROR_UNSUPPORTED);
 			return;
 		}
 
-		navigator.geolocation.getCurrentPosition(
-			(position) => {
-				if (!isActive) {
-					return;
-				}
+		if (geoWatchIdRef.current !== null) {
+			return;
+		}
 
-				const userLonLat: [number, number] = [
-					position.coords.longitude,
-					position.coords.latitude,
-				];
-				setUserLocation(userLonLat);
-				mapRef.current?.easeTo({
-					center: userLonLat,
-					zoom: USER_LOCATION_ZOOM,
-				});
-				setError(null);
-			},
-			() => {
-				if (!isActive) {
-					return;
-				}
-				setUserLocation(null);
-				setError(GEOLOCATION_ERROR_UNAVAILABLE);
-			},
-			{
-				enableHighAccuracy: true,
-				timeout: 10_000,
-				maximumAge: 0,
+		let isActive = true;
+		let watchId: number | null = null;
+
+		const handleSuccess = (position: GeolocationPosition) => {
+			if (!isActive) {
+				return;
 			}
+			const userLonLat: [number, number] = [
+				position.coords.longitude,
+				position.coords.latitude,
+			];
+			updateUserLocation(userLonLat);
+			setError(null);
+		};
+
+		const handleError = (geoError: GeolocationPositionError) => {
+			if (!isActive) {
+				return;
+			}
+			if (watchId !== null) {
+				navigator.geolocation.clearWatch(watchId);
+				geoWatchIdRef.current = null;
+				watchId = null;
+			}
+			setUserLocation(null);
+			const message =
+				geoError.code === geoError.PERMISSION_DENIED
+					? GEOLOCATION_ERROR_PERMISSION_DENIED
+					: GEOLOCATION_ERROR_UNAVAILABLE;
+			setError(message);
+			hasCenteredOnUserRef.current = false;
+		};
+
+		watchId = navigator.geolocation.watchPosition(
+			handleSuccess,
+			handleError,
+			GEOLOCATION_POSITION_OPTIONS
 		);
+		if (watchId !== null) {
+			geoWatchIdRef.current = watchId;
+		}
 
 		return () => {
 			isActive = false;
+			if (watchId !== null) {
+				navigator.geolocation.clearWatch(watchId);
+				geoWatchIdRef.current = null;
+			}
 		};
-	}, [isMapReady]);
+	}, [updateUserLocation]);
+
+	useEffect(() => {
+		if (!isMapReady) {
+			return;
+		}
+
+		const cleanup = startGeolocation();
+
+		const triggerOnInteraction = () => {
+			startGeolocation();
+		};
+
+		window.addEventListener("touchend", triggerOnInteraction, { once: true });
+		window.addEventListener("click", triggerOnInteraction, { once: true });
+
+		return () => {
+			window.removeEventListener("touchend", triggerOnInteraction);
+			window.removeEventListener("click", triggerOnInteraction);
+			if (cleanup) {
+				cleanup();
+			}
+		};
+	}, [isMapReady, startGeolocation]);
+
+	useEffect(() => {
+		return () => {
+			if (geoWatchIdRef.current !== null) {
+				navigator.geolocation.clearWatch(geoWatchIdRef.current);
+				geoWatchIdRef.current = null;
+			}
+		};
+	}, []);
+
+	useEffect(() => {
+		if (!isMapReady || !mapRef.current) {
+			return;
+		}
+		const map = mapRef.current;
+
+		const handleGeolocate = (event: Event & {
+			coords?: GeolocationCoordinates;
+			data?: GeolocationPosition;
+		}) => {
+			const position =
+				event.coords ?? (event.data ? event.data.coords : undefined);
+			if (!position) {
+				return;
+			}
+			const coord: [number, number] = [
+				position.longitude,
+				position.latitude,
+			];
+			setError(null);
+			updateUserLocation(coord);
+		};
+
+		map.on("geolocate", handleGeolocate);
+		return () => {
+			map.off("geolocate", handleGeolocate);
+		};
+	}, [isMapReady, updateUserLocation]);
 
 	const queryArgs = useMemo(() => {
 		if (!bounds || authLoading) {
@@ -336,6 +440,14 @@ export default function MapComponent({
 					height: "100%",
 				}}
 			>
+				<RGeolocateControl
+					key="geolocate-control"
+					position="top-right"
+					trackUserLocation
+					showAccuracyCircle={false}
+					showUserLocation={false}
+					positionOptions={GEOLOCATION_POSITION_OPTIONS}
+				/>
 				<RSource
 					key={PLACES_SOURCE_ID}
 					id={PLACES_SOURCE_ID}
