@@ -9,12 +9,12 @@ export const Route = createFileRoute("/app/profile")({
 		const [{ user }, signinLink] = await Promise.all([
 			getAuth(),
 			getSignInUrl(),
-		])
+		]);
 
 		if (!user) {
 			throw redirect({
 				href: signinLink ?? FALLBACK_SIGNIN_PATH,
-			})
+			});
 		}
 
 		return { user };
@@ -43,6 +43,14 @@ function ProfileRoute() {
 					{user.email && <p className="text-lg text-white/80">{user.email}</p>}
 				</div>
 				<div className="w-full max-w-sm space-y-3">
+					<Link className="block" to="/app/lists">
+						<Button
+							className="w-full rounded-2xl py-4 text-lg"
+							variant="secondary"
+						>
+							View my lists
+						</Button>
+					</Link>
 					<Link className="block" to="/app/my-spots">
 						<Button
 							className="w-full rounded-2xl py-4 text-lg"
@@ -59,5 +67,5 @@ function ProfileRoute() {
 				</div>
 			</div>
 		</div>
-	)
+	);
 }

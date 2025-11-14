@@ -11,9 +11,6 @@ import { motion } from "framer-motion";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { useMapViewState } from "@/context/MapViewContext";
 import { api } from "../../../convex/_generated/api";
-import { createLogger } from "../../lib/logger";
-
-const logger = createLogger("src/routes/app/my-spots");
 
 export const Route = createFileRoute("/app/my-spots")({
 	component: RouteComponent,
