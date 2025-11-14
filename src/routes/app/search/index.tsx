@@ -3,9 +3,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import MapComponent, { type MapMarker } from "@/components/Map";
+import MapComponent from "@/components/Map";
 import { SearchBar } from "@/components/SearchBar";
 import { useMapViewState } from "@/context/MapViewContext";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import type { MapMarker } from "@/types/geospatial";
 import {
 	autocompletePlaces,
 	searchPlacesByText,
@@ -33,6 +35,17 @@ function RouteComponent() {
 	>([]);
 
 	const { mode, setHighlight, highlight } = useMapViewState();
+	const { location: userLocation } = useUserLocation();
+
+	const locationBias = useMemo(() => {
+		if (!userLocation) {
+			return;
+		}
+		return {
+			lat: userLocation.lat,
+			lng: userLocation.lng,
+		};
+	}, [userLocation]);
 
 	const DEBOUNCE_DELAY_MS = 250;
 	const SECONDS_PER_MINUTE = 60;
@@ -63,9 +76,20 @@ function RouteComponent() {
 		isLoading: isAutocompleteLoading,
 		error: autocompleteError,
 	} = useQuery({
-		queryKey: ["places", "autocomplete", debouncedInput, sessionToken],
+		queryKey: [
+			"places",
+			"autocomplete",
+			debouncedInput,
+			sessionToken,
+			locationBias?.lat ?? null,
+			locationBias?.lng ?? null,
+		],
 		queryFn: async () => {
-			const res = await autocompletePlaces(debouncedInput, sessionToken);
+			const res = await autocompletePlaces(
+				debouncedInput,
+				sessionToken,
+				locationBias ? { locationBias } : undefined
+			);
 			return res.suggestions ?? [];
 		},
 		enabled: debouncedInput.length > 0,
@@ -106,7 +130,10 @@ function RouteComponent() {
 			setIsLoading(true);
 			setError(null);
 			try {
-				const res = await searchPlacesByText(trimmed);
+				const res = await searchPlacesByText(
+					trimmed,
+					locationBias ? { locationBias } : undefined
+				);
 				setResults(res.results ?? []);
 			} catch (e) {
 				setError(e instanceof Error ? e.message : "Search failed");
@@ -114,7 +141,7 @@ function RouteComponent() {
 				setIsLoading(false);
 			}
 		}
-	}, [input, navigate]);
+	}, [input, navigate, locationBias]);
 
 	const suggestionItems = useMemo(
 		() =>

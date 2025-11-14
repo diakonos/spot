@@ -5,7 +5,8 @@ import {
 } from "@tanstack/react-router";
 import { useAction, useMutation } from "convex/react";
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useUserLocation } from "@/hooks/useUserLocation";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "../../../components/ui/button";
 import {
@@ -217,6 +218,7 @@ function ManualPlaceEntryComponent() {
 	const search = useSearch({ from: "/app/place/manual" });
 	const crawlUrlToPlace = useAction(api.crawl.firecrawlUrlToPlace);
 	const savePlace = useMutation(api.places.savePlaceForCurrentUser);
+	const { location: userLocation } = useUserLocation();
 
 	const [loadingState, setLoadingState] = useState<LoadingState>("idle");
 	const [error, setError] = useState<string | null>(null);
@@ -230,6 +232,15 @@ function ManualPlaceEntryComponent() {
 	const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
+	const locationBias = useMemo(() => {
+		if (!userLocation) {
+			return;
+		}
+		return {
+			lat: userLocation.lat,
+			lng: userLocation.lng,
+		};
+	}, [userLocation]);
 
 	// Progressive loading effect
 	useEffect(() => {
@@ -273,7 +284,8 @@ function ManualPlaceEntryComponent() {
 					}
 					const response = await autocompletePlaces(
 						query,
-						sessionToken.current
+						sessionToken.current,
+						locationBias ? { locationBias } : undefined
 					);
 					console.log("autocomplete response", response);
 

@@ -14,8 +14,17 @@ import type {
 } from "./types";
 
 const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+const DEFAULT_LOCATION_BIAS_RADIUS_METERS = 50_000;
+type LocationBiasOptions = {
+	lat: number;
+	lng: number;
+	radiusMeters?: number;
+};
+
+type PlacesClientRequestOptions = {
+	locationBias?: LocationBiasOptions;
+};
 if (!GOOGLE_PLACES_API_KEY) {
-	// biome-ignore lint: console.warn for missing API key warning
 	console.warn(
 		"VITE_GOOGLE_PLACES_API_KEY is not set. Google Places API calls will fail."
 	);
@@ -45,8 +54,24 @@ async function getPlacesLibrary() {
 	return await importLibrary("places");
 }
 
+function buildLocationBiasCircle(
+	locationBias?: LocationBiasOptions
+): google.maps.CircleLiteral | undefined {
+	if (!locationBias) {
+		return;
+	}
+	return {
+		center: {
+			lat: locationBias.lat,
+			lng: locationBias.lng,
+		},
+		radius: locationBias.radiusMeters ?? DEFAULT_LOCATION_BIAS_RADIUS_METERS,
+	};
+}
+
 export async function searchPlacesByText(
-	query: string
+	query: string,
+	options?: PlacesClientRequestOptions
 ): Promise<SearchPlacesByTextResponse> {
 	const trimmedQuery = query.trim();
 	if (!trimmedQuery) {
@@ -67,6 +92,10 @@ export async function searchPlacesByText(
 				"opening_hours",
 			],
 		};
+		const locationBiasCircle = buildLocationBiasCircle(options?.locationBias);
+		if (locationBiasCircle) {
+			request.locationBias = locationBiasCircle;
+		}
 
 		return placesLibrary.Place.searchByText(request)
 			.then((results) => {
@@ -113,7 +142,8 @@ async function getAutocompleteSessionToken(
 
 export async function autocompletePlaces(
 	input: string,
-	sessionToken: string
+	sessionToken: string,
+	options?: PlacesClientRequestOptions
 ): Promise<AutocompletePlacesResponse> {
 	const inputText = input.trim();
 	if (!inputText) {
@@ -127,6 +157,10 @@ export async function autocompletePlaces(
 		input: inputText,
 		sessionToken: token,
 	};
+	const locationBiasCircle = buildLocationBiasCircle(options?.locationBias);
+	if (locationBiasCircle) {
+		request.locationBias = locationBiasCircle;
+	}
 
 	try {
 		const result =
