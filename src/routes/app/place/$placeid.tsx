@@ -28,6 +28,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useMapViewState } from "@/context/MapViewContext";
+import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { getPlaceDetails } from "../../../integrations/google/client";
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/app/place/$placeid")({
 
 function PlaceDetailsComponent() {
 	const { user } = useAuth();
+	const { profile } = useCurrentProfile();
 	const navigate = useNavigate();
 	const { placeid } = Route.useParams();
 	const [saveError, setSaveError] = useState<string | null>(null);
@@ -294,7 +296,16 @@ function PlaceDetailsComponent() {
 															<p className="mt-2">
 																<Link
 																	className="text-primary underline-offset-4 hover:underline"
-																	to="/app/lists"
+																	params={
+																		profile?.username
+																			? { username: profile.username }
+																			: undefined
+																	}
+																	to={
+																		profile?.username
+																			? "/$username/lists"
+																			: "/app/onboarding/username"
+																	}
 																>
 																	Create one from your lists page.
 																</Link>
@@ -360,7 +371,7 @@ function PlaceDetailsComponent() {
 									) : (
 										<Link
 											className="rounded-lg border border-primary/40 bg-primary/5 px-4 py-2 text-primary text-sm"
-											to="/app/profile"
+											to="/api/auth/login"
 										>
 											Sign in to use lists
 										</Link>

@@ -11,6 +11,7 @@ import {
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { LayoutGroup } from "framer-motion";
 import { useCallback, useMemo } from "react";
+import { AppLayout } from "@/components/AppLayout";
 import { MapViewStateProvider } from "@/context/MapViewContext";
 import appCss from "../styles.css?url";
 
@@ -69,7 +70,7 @@ export const Route = Sentry.wrapCreateRootRouteWithSentry(createRootRoute)({
 	shellComponent: RootDocument,
 });
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootDocument() {
 	const CONVEX_URL = import.meta.env.VITE_CONVEX_URL;
 	if (!CONVEX_URL) {
 		throw new Error("Missing CONVEX_URL in environment variables");
@@ -100,7 +101,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					>
 						<QueryClientProvider client={queryClient}>
 							<MapViewStateProvider>
-								<LayoutGroup>{children}</LayoutGroup>
+								<LayoutGroup>
+									<AppLayout />
+								</LayoutGroup>
 							</MapViewStateProvider>
 						</QueryClientProvider>
 					</ConvexProviderWithAuth>

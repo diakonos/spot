@@ -8,6 +8,7 @@ import { useCallback } from "react";
 
 export type PageNavProps = {
 	backLink?: LinkProps["to"];
+	backLinkParams?: LinkProps["params"];
 	onBack?: () => void | Promise<void>;
 	title?: string;
 	rightButton?: React.ReactNode;
@@ -15,6 +16,7 @@ export type PageNavProps = {
 
 export function PageNav({
 	backLink,
+	backLinkParams,
 	onBack,
 	title,
 	rightButton,
@@ -26,13 +28,13 @@ export function PageNav({
 		if (onBack) {
 			onBack();
 		} else if (backLink) {
-			router.navigate({ to: backLink });
+			router.navigate({ to: backLink, params: backLinkParams });
 		} else if (canGoBack) {
 			router.history.back();
 		} else {
 			router.navigate({ to: "/" });
 		}
-	}, [onBack, canGoBack, router, backLink]);
+	}, [onBack, canGoBack, router, backLink, backLinkParams]);
 
 	return (
 		<div className="flex w-full items-center justify-center p-4">

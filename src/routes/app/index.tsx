@@ -12,6 +12,7 @@ import { type FormEvent, useCallback, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/ui/input";
 import { useMapViewState } from "@/context/MapViewContext";
+import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import type { MapMarker } from "@/types/geospatial";
 import MapComponent from "../../components/Map";
 
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/app/")({
 
 function RouteComponent() {
 	const { user } = useAuth();
+	const { profile } = useCurrentProfile();
 	const { mode, highlight, setHighlight } = useMapViewState();
 	const navigate = useNavigate();
 	const [saveOptionsOpen, setSaveOptionsOpen] = useState(false);
@@ -94,6 +96,14 @@ function RouteComponent() {
 			handleCloseSaveOptions();
 		}
 	}, [handleCloseSaveOptions, saveOptionsOpen]);
+
+	const profileLink = profile?.username
+		? "/$username"
+		: "/app/onboarding/username";
+	const profileLinkParams = profile?.username
+		? { username: profile.username }
+		: undefined;
+	const profileLinkTo = user ? profileLink : "/api/auth/login";
 
 	return (
 		<div className="h-screen w-full">
@@ -233,7 +243,11 @@ function RouteComponent() {
 								>
 									<PlusIcon className="size-6" /> Save spot
 								</Button>
-								<Link className="inline-flex flex-1/2" to="/app/profile">
+								<Link
+									className="inline-flex flex-1/2"
+									params={profileLinkParams}
+									to={profileLinkTo}
+								>
 									<Button className="w-full shadow-lg">
 										<CircleUserRoundIcon className="size-5" /> Profile
 									</Button>

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import { query } from "./_generated/server";
+import { normalizeUsername } from "../shared/usernames";
+import type { Doc, Id } from "./_generated/dataModel";
+import { type MutationCtx, type QueryCtx, query } from "./_generated/server";
 import { getUserByWorkOSId } from "./fn/users";
 import { authedMutation, authedQuery } from "./functions";
 
@@ -30,7 +31,9 @@ export const createList = authedMutation({
 		while (
 			await ctx.db
 				.query("place_lists")
-				.withIndex("by_slug", (q) => q.eq("slug", slugCandidate))
+				.withIndex("by_user_slug", (q) =>
+					q.eq("userId", ctx.userId as Id<"users">).eq("slug", slugCandidate)
+				)
 				.first()
 		) {
 			slugCandidate = `${baseSlug}-${suffix}`;
@@ -130,12 +133,7 @@ export const getListsForCurrentUser = authedQuery({
 			itemCount: number;
 		}> = [];
 		for (const list of lists) {
-			let count = 0;
-			for await (const _entry of ctx.db
-				.query("place_list_entries")
-				.withIndex("by_list_and_position", (q) => q.eq("listId", list._id))) {
-				count += 1;
-			}
+			const count = await countListEntries(ctx, list._id);
 			results.push({
 				_id: list._id,
 				name: list.name,
@@ -150,19 +148,142 @@ export const getListsForCurrentUser = authedQuery({
 	},
 });
 
-export const getListBySlug = query({
+const listVisibilityValidator = v.union(
+	v.literal("private"),
+	v.literal("public")
+);
+
+async function countListEntries(
+	ctx: QueryCtx | MutationCtx,
+	listId: Id<"place_lists">
+) {
+	let count = 0;
+	for await (const _entry of ctx.db
+		.query("place_list_entries")
+		.withIndex("by_list_and_position", (q) => q.eq("listId", listId))) {
+		count += 1;
+	}
+	return count;
+}
+
+async function getViewerUser(
+	ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users"> | null> {
+	const identity = await ctx.auth.getUserIdentity();
+	if (!identity) {
+		return null;
+	}
+	return await getUserByWorkOSId(ctx, identity.subject);
+}
+
+async function getUserByUsername(ctx: QueryCtx, username: string) {
+	const normalized = normalizeUsername(username);
+	if (!normalized) {
+		return null;
+	}
+	return await ctx.db
+		.query("users")
+		.withIndex("by_username", (q) => q.eq("username", normalized))
+		.unique();
+}
+
+export const getListsForProfile = query({
 	args: {
+		username: v.string(),
+	},
+	returns: v.union(
+		v.null(),
+		v.object({
+			owner: v.object({
+				_id: v.id("users"),
+				username: v.string(),
+				firstName: v.optional(v.string()),
+				lastName: v.optional(v.string()),
+			}),
+			viewerIsOwner: v.boolean(),
+			lists: v.array(
+				v.object({
+					_id: v.id("place_lists"),
+					name: v.string(),
+					slug: v.string(),
+					description: v.optional(v.string()),
+					visibility: listVisibilityValidator,
+					itemCount: v.number(),
+				})
+			),
+		})
+	),
+	handler: async (ctx, args) => {
+		const owner = await getUserByUsername(ctx, args.username);
+		if (!owner?.username) {
+			return null;
+		}
+
+		const viewer = await getViewerUser(ctx);
+		const viewerIsOwner = viewer ? viewer._id === owner._id : false;
+
+		const listsQuery = ctx.db
+			.query("place_lists")
+			.withIndex("by_user", (q) => q.eq("userId", owner._id));
+
+		const lists: Array<{
+			_id: Id<"place_lists">;
+			name: string;
+			slug: string;
+			description?: string;
+			visibility: "private" | "public";
+			itemCount: number;
+		}> = [];
+
+		for await (const list of listsQuery) {
+			if (!viewerIsOwner && list.visibility !== "public") {
+				continue;
+			}
+			const itemCount = await countListEntries(ctx, list._id);
+			lists.push({
+				_id: list._id,
+				name: list.name,
+				slug: list.slug,
+				description: list.description,
+				visibility: list.visibility,
+				itemCount,
+			});
+		}
+
+		return {
+			owner: {
+				_id: owner._id,
+				username: owner.username,
+				firstName: owner.firstName,
+				lastName: owner.lastName,
+			},
+			viewerIsOwner,
+			lists,
+		};
+	},
+});
+
+export const getListBySlugForProfile = query({
+	args: {
+		username: v.string(),
 		slug: v.string(),
 	},
 	returns: v.union(
 		v.null(),
 		v.object({
+			owner: v.object({
+				_id: v.id("users"),
+				username: v.string(),
+				firstName: v.optional(v.string()),
+				lastName: v.optional(v.string()),
+			}),
+			viewerIsOwner: v.boolean(),
 			list: v.object({
 				_id: v.id("place_lists"),
 				name: v.string(),
 				slug: v.string(),
 				description: v.optional(v.string()),
-				visibility: v.union(v.literal("private"), v.literal("public")),
+				visibility: listVisibilityValidator,
 			}),
 			entries: v.array(
 				v.object({
@@ -173,29 +294,28 @@ export const getListBySlug = query({
 			),
 		})
 	),
-	handler: async (ctx, { slug }) => {
+	handler: async (ctx, args) => {
+		const owner = await getUserByUsername(ctx, args.username);
+		if (!owner?.username) {
+			return null;
+		}
+
+		const viewer = await getViewerUser(ctx);
+		const viewerIsOwner = viewer ? viewer._id === owner._id : false;
+
 		const list = await ctx.db
 			.query("place_lists")
-			.withIndex("by_slug", (q) => q.eq("slug", slug))
-			.first();
+			.withIndex("by_user_slug", (q) =>
+				q.eq("userId", owner._id).eq("slug", args.slug)
+			)
+			.unique();
 
 		if (!list) {
 			return null;
 		}
 
-		const identity = await ctx.auth.getUserIdentity();
-
-		if (list.visibility !== "public") {
-			if (!identity) {
-				// If the list is not public and the user is not authenticated, return null
-				return null;
-			}
-
-			const user = await getUserByWorkOSId(ctx, identity?.subject ?? "");
-			// If the list is not public and the user is not the owner, return null
-			if (user?._id !== list.userId) {
-				return null;
-			}
+		if (!viewerIsOwner && list.visibility !== "public") {
+			return null;
 		}
 
 		const entries = await ctx.db
@@ -232,6 +352,13 @@ export const getListBySlug = query({
 		}
 
 		return {
+			owner: {
+				_id: owner._id,
+				username: owner.username,
+				firstName: owner.firstName,
+				lastName: owner.lastName,
+			},
+			viewerIsOwner,
 			list: {
 				_id: list._id,
 				name: list.name,

@@ -7,9 +7,11 @@ export default defineSchema({
 		firstName: v.optional(v.string()),
 		lastName: v.optional(v.string()),
 		workosId: v.optional(v.string()),
+		username: v.optional(v.string()),
 	})
 		.index("by_email", ["email"])
-		.index("by_workos_id", ["workosId"]),
+		.index("by_workos_id", ["workosId"])
+		.index("by_username", ["username"]),
 
 	// Canonical per-place snapshot (provider-owned fields only)
 	places: defineTable({
@@ -98,7 +100,7 @@ export default defineSchema({
 		visibility: v.union(v.literal("private"), v.literal("public")),
 	})
 		.index("by_user", ["userId"])
-		.index("by_slug", ["slug"]),
+		.index("by_user_slug", ["userId", "slug"]),
 
 	place_list_entries: defineTable({
 		listId: v.id("place_lists"),

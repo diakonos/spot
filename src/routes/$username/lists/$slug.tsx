@@ -8,41 +8,56 @@ import { PageContainer } from "@/components/PageContainer";
 import { PageNav } from "@/components/PageNav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cardClassNames } from "@/lib/ui";
-import { api } from "../../../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 
-export const Route = createFileRoute("/app/profile/lists/$slug")({
+export const Route = createFileRoute("/$username/lists/$slug")({
 	component: ListDetailRoute,
 });
 
 function ListDetailRoute() {
 	const navigate = useNavigate();
-	const { slug } = Route.useParams();
-	const listArgs = useMemo(() => (slug ? { slug } : "skip"), [slug]);
-	const listData = useConvexQuery(api.lists.getListBySlug, listArgs);
+	const { slug, username } = Route.useParams();
+	const listArgs = useMemo(
+		() => (slug && username ? { slug, username } : "skip"),
+		[slug, username]
+	);
+	const listData = useConvexQuery(api.lists.getListBySlugForProfile, listArgs);
 
-	const isLoading = slug && listData === undefined;
+	const isLoading = slug && username && listData === undefined;
+	const backLink = username ? "/$username/lists" : "/";
+	const backLinkParams = username ? { username } : undefined;
+
+	if (listData === null && !isLoading) {
+		return (
+			<PageContainer>
+				<PageNav
+					backLink={backLink}
+					backLinkParams={backLinkParams}
+					title="List"
+				/>
+				<div className={cardClassNames("p-6 text-center")}>
+					<p>List not found or private.</p>
+					<Button className="mt-4" onClick={() => navigate({ to: backLink })}>
+						Back to lists
+					</Button>
+				</div>
+			</PageContainer>
+		);
+	}
 
 	return (
 		<PageContainer>
-			<PageNav backLink="/app/profile/lists" title={listData?.list.name} />
+			<PageNav
+				backLink={backLink}
+				backLinkParams={backLinkParams}
+				title={listData?.list.name ?? "List"}
+			/>
 			<div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6">
 				{isLoading && (
 					<div className="space-y-4">
 						<Skeleton className="h-25 w-full" />
 						<Skeleton className="h-25 w-full" />
 						<Skeleton className="h-25 w-full" />
-					</div>
-				)}
-
-				{!isLoading && listData === null && (
-					<div className={cardClassNames("p-6 text-center")}>
-						<p>List not found.</p>
-						<Button
-							className="mt-4"
-							onClick={() => navigate({ to: "/app/profile/lists" })}
-						>
-							View my lists
-						</Button>
 					</div>
 				)}
 
@@ -79,10 +94,15 @@ function ListDetailRoute() {
 				{listData && listData.entries.length === 0 && (
 					<div className="rounded-3xl border border-white/20 border-dashed bg-white/5 p-6 text-center">
 						<p>No places saved yet.</p>
-						<p className="mt-2 text-sm">
-							Head back to a spot, open it, and choose &ldquo;Save to
-							list.&rdquo
-						</p>
+						{listData.viewerIsOwner ? (
+							<p className="mt-2 text-sm">
+								Head back to a spot, open it, and choose “Save to list.”
+							</p>
+						) : (
+							<p className="mt-2 text-muted-foreground text-sm">
+								Check back later for new additions.
+							</p>
+						)}
 					</div>
 				)}
 			</div>
