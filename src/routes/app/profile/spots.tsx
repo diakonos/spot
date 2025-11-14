@@ -10,9 +10,9 @@ import { usePaginatedQuery } from "convex/react";
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { useMapViewState } from "@/context/MapViewContext";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 
-export const Route = createFileRoute("/app/my-spots")({
+export const Route = createFileRoute("/app/profile/spots")({
 	component: RouteComponent,
 });
 
@@ -29,7 +29,7 @@ function RouteComponent() {
 		api.places.listSavedPlacesForCurrentUser,
 		user ? {} : "skip",
 		{ initialNumItems: 10 }
-	);
+	)
 	const { setHighlight } = useMapViewState();
 	const initialLoading = savedPlaces === undefined;
 	const showLoadMore =
@@ -77,7 +77,7 @@ function RouteComponent() {
 					<ul className="space-y-3">
 						{savedPlaces.map(({ save, place }) => {
 							if (!place) {
-								return null;
+								return null
 							}
 
 							return (
@@ -88,7 +88,7 @@ function RouteComponent() {
 												providerPlaceId: place.providerPlaceId,
 												placeId: place._id,
 												name: place.name,
-											});
+											})
 										}}
 										params={{ placeid: place.providerPlaceId }}
 										to="/app/place/$placeid"
@@ -120,7 +120,7 @@ function RouteComponent() {
 										</motion.div>
 									</Link>
 								</li>
-							);
+							)
 						})}
 					</ul>
 				)}
@@ -130,7 +130,7 @@ function RouteComponent() {
 							className="rounded-full border border-white/30 px-4 py-2 font-semibold text-sm text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
 							disabled={status !== "CanLoadMore"}
 							onClick={() => {
-								loadMore(10);
+								loadMore(10)
 							}}
 							type="button"
 						>
@@ -140,5 +140,5 @@ function RouteComponent() {
 				)}
 			</div>
 		</motion.div>
-	);
+	)
 }

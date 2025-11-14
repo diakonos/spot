@@ -4,9 +4,9 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Loader2, MapPin } from "lucide-react";
 import { useMemo } from "react";
 import { Button } from "@/components/Button";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 
-export const Route = createFileRoute("/app/lists/$slug")({
+export const Route = createFileRoute("/app/profile/lists/$slug")({
 	component: ListDetailRoute,
 });
 
@@ -24,7 +24,7 @@ function ListDetailRoute() {
 				<div className="flex items-center justify-between gap-4">
 					<button
 						className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
-						onClick={() => navigate({ to: "/app/lists" })}
+						onClick={() => navigate({ to: "/app/profile/lists" })}
 						type="button"
 					>
 						<ArrowLeft className="h-4 w-4" />
@@ -45,7 +45,7 @@ function ListDetailRoute() {
 						<p>List not found.</p>
 						<Button
 							className="mt-4"
-							onClick={() => navigate({ to: "/app/lists" })}
+							onClick={() => navigate({ to: "/app/profile/lists" })}
 						>
 							View my lists
 						</Button>
@@ -77,7 +77,7 @@ function ListDetailRoute() {
 								<p>No places saved yet.</p>
 								<p className="mt-2 text-sm">
 									Head back to a spot, open it, and choose &ldquo;Save to
-									list.&rdquo;
+									list.&rdquo
 								</p>
 							</div>
 						) : (

@@ -4,7 +4,7 @@ import { Button } from "@/components/Button";
 
 const FALLBACK_SIGNIN_PATH = "/api/auth/login";
 
-export const Route = createFileRoute("/app/profile")({
+export const Route = createFileRoute("/app/profile/")({
 	loader: async () => {
 		const [{ user }, signinLink] = await Promise.all([
 			getAuth(),
@@ -43,7 +43,7 @@ function ProfileRoute() {
 					{user.email && <p className="text-lg text-white/80">{user.email}</p>}
 				</div>
 				<div className="w-full max-w-sm space-y-3">
-					<Link className="block" to="/app/lists">
+					<Link className="block" to="/app/profile/lists">
 						<Button
 							className="w-full rounded-2xl py-4 text-lg"
 							variant="secondary"
@@ -51,7 +51,7 @@ function ProfileRoute() {
 							View my lists
 						</Button>
 					</Link>
-					<Link className="block" to="/app/my-spots">
+					<Link className="block" to="/app/profile/spots">
 						<Button
 							className="w-full rounded-2xl py-4 text-lg"
 							variant="primary"

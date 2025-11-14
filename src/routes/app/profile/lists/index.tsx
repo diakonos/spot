@@ -11,11 +11,11 @@ import { ListPlus, Loader2, Lock, Unlock } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/ui/input";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 
 const FALLBACK_SIGNIN_PATH = "/api/auth/login";
 
-export const Route = createFileRoute("/app/lists/")({
+export const Route = createFileRoute("/app/profile/lists/")({
 	loader: async () => {
 		const [{ user }, signinLink] = await Promise.all([
 			getAuth(),
