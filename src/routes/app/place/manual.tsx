@@ -330,7 +330,7 @@ function ManualPlaceEntryComponent() {
 		return () => {
 			mounted = false;
 		};
-	}, [search.url, crawlUrlToPlace]);
+	}, [search.url, crawlUrlToPlace, locationBias]);
 
 	const handleChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
@@ -373,12 +373,13 @@ function ManualPlaceEntryComponent() {
 		setIsSaving(true);
 
 		try {
+			const providerPlaceId = selectedPlaceId;
 			const lat = formData.lat.trim();
 			const lng = formData.lng.trim();
 			const rating = formData.rating.trim();
 
 			await savePlace({
-				providerPlaceId: selectedPlaceId,
+				providerPlaceId,
 				name: formData.name.trim(),
 				formattedAddress: formData.formatted_address.trim()
 					? formData.formatted_address.trim()
@@ -393,7 +394,10 @@ function ManualPlaceEntryComponent() {
 				rating: rating ? Number.parseFloat(rating) : undefined,
 			});
 
-			navigate({ to: "/app/search" });
+			navigate({
+				to: "/app/place/$placeid",
+				params: { placeid: providerPlaceId },
+			});
 		} catch (err) {
 			setSaveError(
 				err instanceof Error ? err.message : "Failed to save place. Try again."
@@ -470,39 +474,6 @@ function ManualPlaceEntryComponent() {
 						)}
 					</FormField>
 
-					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-						<FormField error={errors.lat} id="lat" label="Latitude">
-							{showOtherFields ? (
-								<Input
-									id="lat"
-									onChange={(e) => {
-										handleChange("lat", e.target.value);
-									}}
-									placeholder="e.g., 37.7749"
-									type="text"
-									value={formData.lat}
-								/>
-							) : (
-								<Skeleton className="h-10 w-full" />
-							)}
-						</FormField>
-						<FormField error={errors.lng} id="lng" label="Longitude">
-							{showOtherFields ? (
-								<Input
-									id="lng"
-									onChange={(e) => {
-										handleChange("lng", e.target.value);
-									}}
-									placeholder="e.g., -122.4194"
-									type="text"
-									value={formData.lng}
-								/>
-							) : (
-								<Skeleton className="h-10 w-full" />
-							)}
-						</FormField>
-					</div>
-
 					<FormField error={errors.phone} id="phone" label="Phone Number">
 						{showOtherFields ? (
 							<Input
@@ -549,23 +520,6 @@ function ManualPlaceEntryComponent() {
 								placeholder="https://maps.google.com/..."
 								type="url"
 								value={formData.google_maps_uri}
-							/>
-						) : (
-							<Skeleton className="h-10 w-full" />
-						)}
-					</FormField>
-
-					<FormField id="rating" label="Rating">
-						{showOtherFields ? (
-							<Input
-								disabled
-								id="rating"
-								onChange={(e) => {
-									handleChange("rating", e.target.value);
-								}}
-								placeholder="e.g., 4.5"
-								type="text"
-								value={formData.rating}
 							/>
 						) : (
 							<Skeleton className="h-10 w-full" />
