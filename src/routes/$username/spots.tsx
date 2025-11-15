@@ -124,14 +124,6 @@ function RouteComponent() {
 													</span>
 												</div>
 											)}
-											{place.rating !== undefined && (
-												<div className="mt-2 flex items-center gap-2">
-													<span className="font-semibold">
-														{place.rating.toFixed(1)}
-													</span>
-													<span className="">⭐</span>
-												</div>
-											)}
 										</div>
 									</Link>
 								</li>

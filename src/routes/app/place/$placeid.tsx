@@ -3,10 +3,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { useQuery as useConvexQuery, useMutation } from "convex/react";
 import { Bookmark, ExternalLink, Globe, MapPin, Phone } from "lucide-react";
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageContainer } from "@/components/PageContainer";
 import { PageNav } from "@/components/PageNav";
 import { SavePlaceDialog } from "@/components/save-place-dialog";
+import {
+	Carousel,
+	CarouselContent,
+	CarouselItem,
+	CarouselNext,
+	CarouselPrevious,
+} from "@/components/ui/carousel";
 import { useMapViewState } from "@/context/MapViewContext";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { api } from "../../../../convex/_generated/api";
@@ -14,6 +22,34 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { getPlaceDetails } from "../../../integrations/google/client";
 import type { PlaceDetailsResponse } from "../../../integrations/google/types";
 import { QUERY_STALE_TIME_MS } from "../../../lib/networking";
+
+const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+const LEADING_SLASHES_REGEX = /^\/+/;
+type PlacePhoto = NonNullable<PlaceDetailsResponse["photos"]>[number];
+type ResolvedPlacePhoto = PlacePhoto & { url: string };
+
+const resolveProviderPhotoUrl = (photo: PlacePhoto): string | null => {
+	const photoName = photo?.name?.trim();
+	if (!photoName) {
+		return null;
+	}
+	if (photoName.startsWith("http://") || photoName.startsWith("https://")) {
+		return photoName;
+	}
+	if (!GOOGLE_PLACES_API_KEY) {
+		return null;
+	}
+	const normalizedName = photoName.replace(LEADING_SLASHES_REGEX, "");
+	const url = new URL(
+		`https://places.googleapis.com/v1/${normalizedName}/media`
+	);
+	const params = new URLSearchParams();
+	const width = photo.widthPx && photo.widthPx > 0 ? photo.widthPx : 800;
+	params.set("maxWidthPx", Math.min(width, 1600).toString());
+	params.set("key", GOOGLE_PLACES_API_KEY);
+	url.search = params.toString();
+	return url.toString();
+};
 
 export const Route = createFileRoute("/app/place/$placeid")({
 	component: PlaceDetailsComponent,
@@ -157,10 +193,50 @@ function PlaceDetailsComponent() {
 			setIsDialogOpen(false);
 		}
 	};
+	let pageNavRightButton: ReactNode | null = null;
+	if (placeid && user) {
+		pageNavRightButton = (
+			<button
+				aria-label="Save place"
+				className={`flex items-center gap-2 rounded-full border px-4 py-2 font-medium text-sm shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 ${
+					isSaved
+						? "border-primary bg-primary/10 text-primary"
+						: "bg-background text-foreground"
+				}`}
+				disabled={isEnsuringSaved || !finalPlaceDetails}
+				onClick={handleOpenSaveDialog}
+				type="button"
+			>
+				<Bookmark className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+				<span>{saveButtonLabel}</span>
+			</button>
+		);
+	} else if (!user) {
+		pageNavRightButton = (
+			<Link
+				className="rounded-full border border-primary/40 bg-primary/5 px-4 py-2 text-primary text-sm"
+				to="/api/auth/login"
+			>
+				Sign in to save spots
+			</Link>
+		);
+	}
+	const photoItems =
+		finalPlaceDetails?.photos?.filter((photo) => Boolean(photo?.name)) ?? [];
+	const resolvedPhotoItems = useMemo<ResolvedPlacePhoto[]>(
+		() =>
+			photoItems
+				.map((photo) => {
+					const url = resolveProviderPhotoUrl(photo);
+					return url ? { ...photo, url } : null;
+				})
+				.filter((photo): photo is ResolvedPlacePhoto => photo !== null),
+		[photoItems]
+	);
 
 	return (
 		<PageContainer>
-			<PageNav />
+			<PageNav rightButton={pageNavRightButton} />
 			{user && placeid && (
 				<SavePlaceDialog
 					onOpenChange={handleDialogOpenChange}
@@ -175,7 +251,7 @@ function PlaceDetailsComponent() {
 					username={profile?.username ?? undefined}
 				/>
 			)}
-			<div className="px-4 py-6">
+			<div className="px-4">
 				{isLoading && (
 					<div className="py-8 text-center text-muted-foreground">
 						Loading place details…
@@ -192,70 +268,21 @@ function PlaceDetailsComponent() {
 
 				{finalPlaceDetails && (
 					<div className="space-y-6">
-						{/* Name and Save Button */}
+						{/* Name */}
 						<div>
-							<div className="flex items-start justify-between gap-4">
-								<div className="flex-1">
-									<h2 className="font-bold text-2xl">
-										{finalPlaceDetails.name}
-									</h2>
-									{finalPlaceDetails.formatted_address && (
-										<div className="mt-2 flex items-start gap-2 text-muted-foreground">
-											<MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-											<span className="text-sm">
-												{finalPlaceDetails.formatted_address}
-											</span>
-										</div>
-									)}
+							<h2 className="font-bold text-2xl">{finalPlaceDetails.name}</h2>
+							{finalPlaceDetails.formatted_address && (
+								<div className="mt-2 flex items-start gap-2 text-muted-foreground">
+									<MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+									<span className="text-sm">
+										{finalPlaceDetails.formatted_address}
+									</span>
 								</div>
-								<div className="flex flex-wrap items-center gap-2">
-									{user ? (
-										<button
-											aria-label="Save place"
-											className={`flex items-center gap-2 rounded-lg border px-4 py-2 font-medium text-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 ${
-												isSaved
-													? "border-primary bg-primary/10 text-primary"
-													: "bg-background"
-											}`}
-											disabled={isEnsuringSaved || !finalPlaceDetails}
-											onClick={handleOpenSaveDialog}
-											type="button"
-										>
-											<Bookmark
-												className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`}
-											/>
-											<span>{saveButtonLabel}</span>
-										</button>
-									) : (
-										<Link
-											className="rounded-lg border border-primary/40 bg-primary/5 px-4 py-2 text-primary text-sm"
-											to="/api/auth/login"
-										>
-											Sign in to save spots
-										</Link>
-									)}
-								</div>
-							</div>
+							)}
 							{saveError && (
 								<div className="mt-2 text-red-500 text-sm">{saveError}</div>
 							)}
 						</div>
-
-						{/* Rating */}
-						{finalPlaceDetails.rating !== undefined && (
-							<div className="flex items-center gap-2">
-								<span className="font-semibold text-lg">
-									{finalPlaceDetails.rating.toFixed(1)}
-								</span>
-								<span className="text-muted-foreground">⭐</span>
-								{finalPlaceDetails.user_ratings_total !== undefined && (
-									<span className="text-muted-foreground text-sm">
-										({finalPlaceDetails.user_ratings_total.toLocaleString()}{" "}
-										reviews)
-									</span>
-								)}
-							</div>
-						)}
 
 						{/* Contact Information */}
 						{(finalPlaceDetails.phone || finalPlaceDetails.website) && (
@@ -286,6 +313,48 @@ function PlaceDetailsComponent() {
 							</div>
 						)}
 
+						{/* Photos */}
+						{resolvedPhotoItems.length > 0 && (
+							<div className="space-y-3">
+								<div className="flex items-center justify-between">
+									<h3 className="font-semibold text-lg">Photos</h3>
+									<span className="text-muted-foreground text-sm">
+										{resolvedPhotoItems.length} photo
+										{resolvedPhotoItems.length !== 1 ? "s" : ""} available
+									</span>
+								</div>
+								<Carousel
+									className="w-full"
+									opts={{ align: "start", loop: true }}
+								>
+									<CarouselContent>
+										{resolvedPhotoItems.map((photo) => (
+											<CarouselItem key={photo.url}>
+												<div className="overflow-hidden rounded-xl bg-muted">
+													<img
+														alt={`${finalPlaceDetails.name} scene`}
+														className="h-64 w-full object-cover"
+														height={photo.heightPx || 600}
+														loading="lazy"
+														src={photo.url}
+														width={photo.widthPx || 800}
+													/>
+												</div>
+											</CarouselItem>
+										))}
+									</CarouselContent>
+									<CarouselPrevious
+										className="-translate-y-1/2 top-1/2"
+										style={{ left: "0.75rem" }}
+									/>
+									<CarouselNext
+										className="-translate-y-1/2 top-1/2"
+										style={{ right: "0.75rem" }}
+									/>
+								</Carousel>
+							</div>
+						)}
+
 						{/* Google Maps Link */}
 						{finalPlaceDetails.google_maps_uri && (
 							<a
@@ -299,21 +368,6 @@ function PlaceDetailsComponent() {
 								<ExternalLink className="h-4 w-4" />
 							</a>
 						)}
-
-						{/* Photos */}
-						{finalPlaceDetails.photos &&
-							finalPlaceDetails.photos.length > 0 && (
-								<div className="space-y-2">
-									<h3 className="font-semibold text-lg">Photos</h3>
-									<div className="text-muted-foreground text-sm">
-										{finalPlaceDetails.photos.length} photo
-										{finalPlaceDetails.photos.length !== 1 ? "s" : ""} available
-									</div>
-									<div className="text-muted-foreground text-xs">
-										Photo name: {finalPlaceDetails.photos[0]?.name}
-									</div>
-								</div>
-							)}
 					</div>
 				)}
 			</div>
