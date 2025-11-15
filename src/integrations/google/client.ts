@@ -7,11 +7,14 @@
  */
 
 import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
+import { createLogger } from "@/lib/logger";
 import type {
 	AutocompletePlacesResponse,
 	PlaceDetailsResponse,
 	SearchPlacesByTextResponse,
 } from "./types";
+
+const logger = createLogger("google/client");
 
 const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
 const DEFAULT_LOCATION_BIAS_RADIUS_METERS = 50_000;
@@ -25,7 +28,7 @@ type PlacesClientRequestOptions = {
 	locationBias?: LocationBiasOptions;
 };
 if (!GOOGLE_PLACES_API_KEY) {
-	console.warn(
+	logger.warn(
 		"VITE_GOOGLE_PLACES_API_KEY is not set. Google Places API calls will fail."
 	);
 }

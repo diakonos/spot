@@ -7,6 +7,7 @@ import { useAction, useMutation } from "convex/react";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUserLocation } from "@/hooks/useUserLocation";
+import { createLogger } from "@/lib/logger";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "../../../components/ui/button";
 import {
@@ -25,6 +26,8 @@ import {
 	getPlaceDetails,
 } from "../../../integrations/google/client";
 import type { PlaceDetailsResponse } from "../../../integrations/google/types";
+
+const logger = createLogger("ManualPlaceEntryComponent");
 
 export const Route = createFileRoute("/app/place/manual")({
 	validateSearch: (search: Record<string, unknown>) => ({
@@ -261,7 +264,7 @@ function ManualPlaceEntryComponent() {
 				const crawledData = await crawlUrlToPlace({
 					url: search.url as string,
 				});
-				console.log("crawledData", crawledData);
+				logger.debug("crawledData", crawledData);
 
 				if (!mounted) {
 					return;
@@ -287,7 +290,7 @@ function ManualPlaceEntryComponent() {
 						sessionToken.current,
 						locationBias ? { locationBias } : undefined
 					);
-					console.log("autocomplete response", response);
+					logger.debug("autocomplete response", response);
 
 					if (mounted && response.suggestions.length > 0) {
 						setLoadingState("fetching");

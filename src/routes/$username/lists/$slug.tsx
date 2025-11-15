@@ -1,14 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery as useConvexQuery } from "convex/react";
 import { motion } from "framer-motion";
-import { MapPin } from "lucide-react";
-import { useMemo } from "react";
+import { MapPin, ShareIcon } from "lucide-react";
+import { useCallback, useMemo } from "react";
 import { Button } from "@/components/Button";
 import { PageContainer } from "@/components/PageContainer";
 import { PageNav } from "@/components/PageNav";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSystemShare } from "@/hooks/useSystemShare";
+import { createLogger } from "@/lib/logger";
 import { cardClassNames } from "@/lib/ui";
 import { api } from "../../../../convex/_generated/api";
+
+const logger = createLogger("ListDetailRoute");
 
 export const Route = createFileRoute("/$username/lists/$slug")({
 	component: ListDetailRoute,
@@ -22,10 +26,28 @@ function ListDetailRoute() {
 		[slug, username]
 	);
 	const listData = useConvexQuery(api.lists.getListBySlugForProfile, listArgs);
+	const shareList = useSystemShare();
 
 	const isLoading = slug && username && listData === undefined;
 	const backLink = username ? "/$username/lists" : "/";
 	const backLinkParams = username ? { username } : undefined;
+	const listTitle = listData?.list.name ?? "List";
+
+	const handleShare = useCallback(async () => {
+		if (typeof window === "undefined") {
+			return;
+		}
+
+		const result = await shareList({
+			url: window.location.href,
+			title: listTitle,
+			text: `Check out ${listTitle} on Spot.`,
+		});
+
+		if (!result.ok) {
+			logger.error("Failed to share list", result.error);
+		}
+	}, [listTitle, shareList]);
 
 	if (listData === null && !isLoading) {
 		return (
@@ -50,6 +72,18 @@ function ListDetailRoute() {
 			<PageNav
 				backLink={backLink}
 				backLinkParams={backLinkParams}
+				rightButton={
+					listData ? (
+						<Button
+							className="hover:bg-slate-200"
+							onClick={handleShare}
+							variant="ghost"
+						>
+							<ShareIcon className="size-4" />
+							Share
+						</Button>
+					) : undefined
+				}
 				title={listData?.list.name ?? "List"}
 			/>
 			<div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6">

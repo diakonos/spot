@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
 import { useCallback } from "react";
+import { Button } from "./Button";
 
 export type PageNavProps = {
 	backLink?: LinkProps["to"];
@@ -38,14 +39,14 @@ export function PageNav({
 
 	return (
 		<div className="flex w-full items-center justify-center p-4">
-			<button
-				className="mr-auto flex cursor-pointer items-center gap-2 font-semibold text-lg"
+			<Button
+				className="mr-auto flex items-center gap-2 hover:bg-slate-200"
 				onClick={handleBack}
-				type="button"
+				variant="ghost"
 			>
 				<ArrowLeftIcon className="size-5" />
 				Back
-			</button>
+			</Button>
 			{title && <h1 className="font-semibold text-lg">{title}</h1>}
 			{rightButton ? (
 				<div className="ml-auto">{rightButton}</div>
@@ -56,7 +57,7 @@ export function PageNav({
 					type="button"
 				>
 					<ArrowLeftIcon className="size-5" />
-					Back
+					Spacer
 				</button>
 			)}
 		</div>
