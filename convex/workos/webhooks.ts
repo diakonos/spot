@@ -1,9 +1,12 @@
 "use node";
 
 import { WorkOS } from "@workos-inc/node";
+import { createLogger } from "../../src/lib/logger";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
 import http from "../http";
+
+const logger = createLogger("convex/workos/webhooks");
 
 http.route({
 	path: "/api/workos/webhooks",
@@ -28,12 +31,27 @@ http.route({
 		}
 
 		try {
+			const body = await req.json();
+			const rawBody = JSON.stringify(body);
+			const truncatedPayload =
+				rawBody.length > 2000
+					? `${rawBody.slice(0, 2000)}...[truncated]`
+					: rawBody;
+			logger.debug("Received webhook payload", {
+				signaturePresent: Boolean(signature),
+				payloadPreview: truncatedPayload,
+			});
+
 			// Verify and construct event using WorkOS SDK
 			const workos = new WorkOS(workosApiKey);
 			const event = await workos.webhooks.constructEvent({
-				payload: await req.json(),
+				payload: body,
 				sigHeader: signature,
 				secret: workosWebhookSecret,
+			});
+			logger.debug("Verified webhook event", {
+				eventType: event.event,
+				data: event.data,
 			});
 
 			const eventType = event.event;
@@ -55,6 +73,12 @@ http.route({
 					firstName,
 					lastName,
 				});
+				logger.debug("Upserted user from WorkOS", {
+					eventType,
+					workosId,
+					email,
+					userId,
+				});
 
 				// Update WorkOS external_id with our Convex user id
 				const workosClient = new WorkOS(workosApiKey);
@@ -62,10 +86,18 @@ http.route({
 					userId: workosId,
 					externalId: userId,
 				});
+				logger.debug("Updated WorkOS user externalId", {
+					workosId,
+					externalId: userId,
+				});
 			} else if (eventType === "user.deleted") {
 				// Delete user from Convex
 				const workosId = event.data.id;
 				await ctx.runMutation(internal.users.deleteByWorkOSId, {
+					workosId,
+				});
+				logger.debug("Deleted Convex user via WorkOS event", {
+					eventType,
 					workosId,
 				});
 			}
@@ -75,6 +107,7 @@ http.route({
 				headers: { "Content-Type": "application/json" },
 			});
 		} catch (error) {
+			logger.error("Webhook processing error", error);
 			// If signature verification failed, return 400
 			if (error instanceof Error && error.message.includes("signature")) {
 				return new Response(JSON.stringify({ error: "Invalid signature" }), {
