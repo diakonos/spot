@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { inferProviderFromPlaceId } from "../shared/places";
 import { normalizeUsername } from "../shared/usernames";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type MutationCtx, type QueryCtx, query } from "./_generated/server";
@@ -174,10 +175,11 @@ export const getListsWithSavedPlaceState = authedQuery({
 			.withIndex("by_user", (q) => q.eq("userId", ctx.userId as Id<"users">))
 			.collect();
 
+		const provider = inferProviderFromPlaceId(args.providerPlaceId);
 		const place = await ctx.db
 			.query("places")
 			.withIndex("by_provider_id", (q) =>
-				q.eq("provider", "google").eq("providerPlaceId", args.providerPlaceId)
+				q.eq("provider", provider).eq("providerPlaceId", args.providerPlaceId)
 			)
 			.first();
 

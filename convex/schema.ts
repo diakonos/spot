@@ -15,7 +15,7 @@ export default defineSchema({
 
 	// Canonical per-place snapshot (provider-owned fields only)
 	places: defineTable({
-		provider: v.literal("google"),
+		provider: v.union(v.literal("google"), v.literal("manual")),
 		providerPlaceId: v.string(), // Google Places "id"
 
 		// Convenience display name (denormalized from displayName.text)
@@ -116,7 +116,7 @@ export default defineSchema({
 export const validators = {
 	place: {
 		full: v.object({
-			provider: v.literal("google"),
+			provider: v.union(v.literal("google"), v.literal("manual")),
 			providerPlaceId: v.string(),
 			name: v.string(),
 			displayName: v.optional(
