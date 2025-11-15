@@ -66,7 +66,6 @@ function RouteComponent() {
 		event.preventDefault();
 		const trimmed = linkUrl.trim();
 		if (!trimmed) {
-			setLinkError("Paste a link to continue");
 			return;
 		}
 
@@ -178,45 +177,48 @@ function RouteComponent() {
 									className={`rounded-3xl bg-white/90 shadow-xl backdrop-blur-sm transition-all ${showLinkForm ? "p-4" : "p-0"}`}
 								>
 									<div className="flex flex-col gap-3">
-										<AnimatePresence initial={false} mode="wait">
-											{showLinkForm && (
-												<motion.form
-													animate={{ opacity: 1, y: 0 }}
-													className="flex flex-col gap-2"
-													exit={{ opacity: 0, y: 12 }}
-													initial={{ opacity: 0, y: 12 }}
-													onSubmit={handleLinkSubmit}
-													transition={{ duration: 0.2, ease: "easeOut" }}
-												>
-													<Input
-														onChange={(event) => {
-															setLinkUrl(event.target.value);
-															if (linkError) {
-																setLinkError(null);
-															}
-														}}
-														placeholder="https://example.com/contact"
-														ref={linkInputRef}
-														type="url"
-														value={linkUrl}
-													/>
-													{linkError && (
-														<p className="text-red-500 text-sm">{linkError}</p>
-													)}
-												</motion.form>
-											)}
-										</AnimatePresence>
-										<Button
-											className="w-full"
-											onClick={
-												showLinkForm ? undefined : handleSaveViaLinkClick
-											}
-											type={showLinkForm ? "button" : "submit"}
-											variant="primary"
-										>
-											<SparkleIcon className="size-4" />
-											{showLinkForm ? "Continue" : "Paste a link"}
-										</Button>
+										<form onSubmit={handleLinkSubmit}>
+											<AnimatePresence initial={false} mode="wait">
+												{showLinkForm && (
+													<motion.div
+														animate={{ opacity: 1, y: 0 }}
+														className="mb-4 flex flex-col gap-2"
+														exit={{ opacity: 0, y: 12 }}
+														initial={{ opacity: 0, y: 12 }}
+														transition={{ duration: 0.2, ease: "easeOut" }}
+													>
+														<Input
+															onChange={(event) => {
+																setLinkUrl(event.target.value);
+																if (linkError) {
+																	setLinkError(null);
+																}
+															}}
+															placeholder="https://example.com/contact"
+															ref={linkInputRef}
+															type="url"
+															value={linkUrl}
+														/>
+														{linkError && (
+															<p className="text-red-500 text-sm">
+																{linkError}
+															</p>
+														)}
+													</motion.div>
+												)}
+											</AnimatePresence>
+											<Button
+												className="w-full"
+												onClick={
+													showLinkForm ? undefined : handleSaveViaLinkClick
+												}
+												type={showLinkForm ? "submit" : "button"}
+												variant="primary"
+											>
+												<SparkleIcon className="size-4" />
+												{showLinkForm ? "Continue" : "Paste a link"}
+											</Button>
+										</form>
 									</div>
 								</div>
 								<button

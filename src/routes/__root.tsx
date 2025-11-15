@@ -56,7 +56,7 @@ export const Route = Sentry.wrapCreateRootRouteWithSentry(createRootRoute)({
 				content: "width=device-width, initial-scale=1",
 			},
 			{
-				title: "TanStack Start Starter",
+				title: "Spotted",
 			},
 		],
 		links: [
