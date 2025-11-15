@@ -22,6 +22,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { getPlaceDetails } from "../../../integrations/google/client";
 import type { PlaceDetailsResponse } from "../../../integrations/google/types";
 import { QUERY_STALE_TIME_MS } from "../../../lib/networking";
+import { inferProviderFromPlaceId } from "../../../../shared/places";
 
 const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
 const LEADING_SLASHES_REGEX = /^\/+/;
@@ -60,6 +61,7 @@ function PlaceDetailsComponent() {
 	const { user } = useAuth();
 	const { profile } = useCurrentProfile();
 	const { placeid } = Route.useParams();
+	const provider = placeid ? inferProviderFromPlaceId(placeid) : "google";
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [isEnsuringSaved, setIsEnsuringSaved] = useState(false);
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -99,7 +101,7 @@ function PlaceDetailsComponent() {
 			}
 			return await getPlaceDetails(placeid);
 		},
-		enabled: convexPlaceData === null && !!placeid,
+		enabled: convexPlaceData === null && !!placeid && provider === "google",
 		staleTime: QUERY_STALE_TIME_MS,
 	});
 
@@ -144,11 +146,15 @@ function PlaceDetailsComponent() {
 			return null;
 		}
 		return {
+			provider,
 			providerPlaceId: placeid,
 			name: finalPlaceDetails.name,
 			formattedAddress: finalPlaceDetails.formatted_address,
 			location: finalPlaceDetails.location,
 			rating: finalPlaceDetails.rating,
+			phone: finalPlaceDetails.phone,
+			website: finalPlaceDetails.website,
+			googleMapsUri: finalPlaceDetails.google_maps_uri,
 		};
 	};
 
@@ -233,6 +239,12 @@ function PlaceDetailsComponent() {
 				.filter((photo): photo is ResolvedPlacePhoto => photo !== null),
 		[photoItems]
 	);
+	const fallbackGoogleMapsUrl = finalPlaceDetails?.formatted_address
+		? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+				finalPlaceDetails.formatted_address
+		  )}`
+		: null;
+	const googleMapsUrl = finalPlaceDetails?.google_maps_uri ?? fallbackGoogleMapsUrl;
 
 	return (
 		<PageContainer>
@@ -356,10 +368,10 @@ function PlaceDetailsComponent() {
 						)}
 
 						{/* Google Maps Link */}
-						{finalPlaceDetails.google_maps_uri && (
+						{googleMapsUrl && (
 							<a
 								className="flex items-center justify-center gap-2 rounded-lg border bg-background px-4 py-3 transition-colors hover:bg-muted"
-								href={finalPlaceDetails.google_maps_uri}
+								href={googleMapsUrl}
 								rel="noopener noreferrer"
 								target="_blank"
 							>
