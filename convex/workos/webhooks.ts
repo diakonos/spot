@@ -1,11 +1,12 @@
 "use node";
 
 import { WorkOS } from "@workos-inc/node";
+import { createLogger } from "../../src/lib/logger";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
 import http from "../http";
 
-const LOG_PREFIX = "[workos-webhook]";
+const logger = createLogger("convex/workos/webhooks");
 
 http.route({
 	path: "/api/workos/webhooks",
@@ -30,10 +31,13 @@ http.route({
 		}
 
 		try {
-			const rawBody = await req.text();
+			const body = await req.json();
+			const rawBody = JSON.stringify(body);
 			const truncatedPayload =
-				rawBody.length > 2000 ? `${rawBody.slice(0, 2000)}...[truncated]` : rawBody;
-			console.log(LOG_PREFIX, "Received webhook payload", {
+				rawBody.length > 2000
+					? `${rawBody.slice(0, 2000)}...[truncated]`
+					: rawBody;
+			logger.debug("Received webhook payload", {
 				signaturePresent: Boolean(signature),
 				payloadPreview: truncatedPayload,
 			});
@@ -41,13 +45,13 @@ http.route({
 			// Verify and construct event using WorkOS SDK
 			const workos = new WorkOS(workosApiKey);
 			const event = await workos.webhooks.constructEvent({
-				payload: rawBody,
+				payload: body,
 				sigHeader: signature,
 				secret: workosWebhookSecret,
 			});
-			console.log(LOG_PREFIX, "Verified webhook event", {
+			logger.debug("Verified webhook event", {
 				eventType: event.event,
-				workosId: event.data?.id,
+				data: event.data,
 			});
 
 			const eventType = event.event;
@@ -69,7 +73,7 @@ http.route({
 					firstName,
 					lastName,
 				});
-				console.log(LOG_PREFIX, "Upserted user from WorkOS", {
+				logger.debug("Upserted user from WorkOS", {
 					eventType,
 					workosId,
 					email,
@@ -82,7 +86,7 @@ http.route({
 					userId: workosId,
 					externalId: userId,
 				});
-				console.log(LOG_PREFIX, "Updated WorkOS user externalId", {
+				logger.debug("Updated WorkOS user externalId", {
 					workosId,
 					externalId: userId,
 				});
@@ -92,7 +96,7 @@ http.route({
 				await ctx.runMutation(internal.users.deleteByWorkOSId, {
 					workosId,
 				});
-				console.log(LOG_PREFIX, "Deleted Convex user via WorkOS event", {
+				logger.debug("Deleted Convex user via WorkOS event", {
 					eventType,
 					workosId,
 				});
@@ -103,7 +107,7 @@ http.route({
 				headers: { "Content-Type": "application/json" },
 			});
 		} catch (error) {
-			console.error(LOG_PREFIX, "Webhook processing error", error);
+			logger.error("Webhook processing error", error);
 			// If signature verification failed, return 400
 			if (error instanceof Error && error.message.includes("signature")) {
 				return new Response(JSON.stringify({ error: "Invalid signature" }), {
