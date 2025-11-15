@@ -306,6 +306,7 @@ export const getPlaceDetailsWithSaveStatus = query({
 			}),
 			lastSyncedAt: v.number(),
 			isSaved: v.boolean(),
+			savedPlaceId: v.union(v.null(), v.id("saved_places")),
 		})
 	),
 	handler: async (ctx, { providerPlaceId }) => {
@@ -326,6 +327,7 @@ export const getPlaceDetailsWithSaveStatus = query({
 		const identity = await ctx.auth.getUserIdentity();
 		let isSaved = false;
 
+		let savedPlaceId: Id<"saved_places"> | null = null;
 		if (identity) {
 			// Find user by workosId (from token subject)
 			const user = await ctx.db
@@ -340,7 +342,10 @@ export const getPlaceDetailsWithSaveStatus = query({
 						q.eq("userId", user._id).eq("placeId", place._id)
 					)
 					.first();
-				isSaved = !!savedPlace;
+				if (savedPlace) {
+					isSaved = true;
+					savedPlaceId = savedPlace._id;
+				}
 			}
 		}
 
@@ -351,6 +356,7 @@ export const getPlaceDetailsWithSaveStatus = query({
 			place: placeResponse,
 			lastSyncedAt: place.lastSyncedAt,
 			isSaved,
+			savedPlaceId,
 		};
 	},
 });
@@ -444,5 +450,29 @@ export const savePlaceForCurrentUser = authedMutation({
 			myRating: args.myRating,
 			note: args.note,
 		});
+	},
+});
+
+export const unsaveSavedPlace = authedMutation({
+	args: {
+		savedPlaceId: v.id("saved_places"),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const savedPlace = await ctx.db.get(args.savedPlaceId);
+		if (!savedPlace || savedPlace.userId !== (ctx.userId as Id<"users">)) {
+			throw new Error("Saved place not found");
+		}
+
+		for await (const entry of ctx.db
+			.query("place_list_entries")
+			.withIndex("by_saved_place_and_list", (q) =>
+				q.eq("savedPlaceId", args.savedPlaceId)
+			)) {
+			await ctx.db.delete(entry._id);
+		}
+
+		await ctx.db.delete(args.savedPlaceId);
+		return null;
 	},
 });

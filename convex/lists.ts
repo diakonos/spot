@@ -148,6 +148,97 @@ export const getListsForCurrentUser = authedQuery({
 	},
 });
 
+export const getListsWithSavedPlaceState = authedQuery({
+	args: {
+		providerPlaceId: v.string(),
+	},
+	returns: v.object({
+		savedPlaceId: v.union(v.null(), v.id("saved_places")),
+		placeId: v.union(v.null(), v.id("places")),
+		lists: v.array(
+			v.object({
+				_id: v.id("place_lists"),
+				name: v.string(),
+				slug: v.string(),
+				description: v.optional(v.string()),
+				visibility: v.union(v.literal("private"), v.literal("public")),
+				itemCount: v.number(),
+				isMember: v.boolean(),
+				entryId: v.union(v.null(), v.id("place_list_entries")),
+			})
+		),
+	}),
+	handler: async (ctx, args) => {
+		const lists = await ctx.db
+			.query("place_lists")
+			.withIndex("by_user", (q) => q.eq("userId", ctx.userId as Id<"users">))
+			.collect();
+
+		const place = await ctx.db
+			.query("places")
+			.withIndex("by_provider_id", (q) =>
+				q.eq("provider", "google").eq("providerPlaceId", args.providerPlaceId)
+			)
+			.first();
+
+		if (!place) {
+			return {
+				savedPlaceId: null,
+				placeId: null,
+				lists: await Promise.all(
+					lists.map(async (list) => ({
+						_id: list._id,
+						name: list.name,
+						slug: list.slug,
+						description: list.description,
+						visibility: list.visibility,
+						itemCount: await countListEntries(ctx, list._id),
+						isMember: false,
+						entryId: null,
+					}))
+				),
+			};
+		}
+
+		const savedPlace = await ctx.db
+			.query("saved_places")
+			.withIndex("by_user_place", (q) =>
+				q.eq("userId", ctx.userId as Id<"users">).eq("placeId", place._id)
+			)
+			.first();
+
+		const membership = new Map<Id<"place_lists">, Id<"place_list_entries">>();
+		if (savedPlace) {
+			for await (const entry of ctx.db
+				.query("place_list_entries")
+				.withIndex("by_saved_place_and_list", (q) =>
+					q.eq("savedPlaceId", savedPlace._id)
+				)) {
+				membership.set(entry.listId, entry._id);
+			}
+		}
+
+		const listsWithState = await Promise.all(
+			lists.map(async (list) => ({
+				_id: list._id,
+				name: list.name,
+				slug: list.slug,
+				description: list.description,
+				visibility: list.visibility,
+				itemCount: await countListEntries(ctx, list._id),
+				isMember: membership.has(list._id),
+				entryId: membership.get(list._id) ?? null,
+			}))
+		);
+
+		return {
+			savedPlaceId: savedPlace?._id ?? null,
+			placeId: place._id,
+			lists: listsWithState,
+		};
+	},
+});
+
 const listVisibilityValidator = v.union(
 	v.literal("private"),
 	v.literal("public")
@@ -368,5 +459,61 @@ export const getListBySlugForProfile = query({
 			},
 			entries: detailedEntries,
 		};
+	},
+});
+
+export const setSavedPlaceLists = authedMutation({
+	args: {
+		savedPlaceId: v.id("saved_places"),
+		listIds: v.array(v.id("place_lists")),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const savedPlace = await ctx.db.get(args.savedPlaceId);
+		if (!savedPlace || savedPlace.userId !== (ctx.userId as Id<"users">)) {
+			throw new Error("Saved place not found");
+		}
+
+		const desiredListIds = new Set<Id<"place_lists">>(args.listIds);
+
+		for (const listId of desiredListIds) {
+			const list = await ctx.db.get(listId);
+			if (!list || list.userId !== (ctx.userId as Id<"users">)) {
+				throw new Error("List not found");
+			}
+		}
+
+		const existingMembership = new Set<Id<"place_lists">>();
+		for await (const entry of ctx.db
+			.query("place_list_entries")
+			.withIndex("by_saved_place_and_list", (q) =>
+				q.eq("savedPlaceId", args.savedPlaceId)
+			)) {
+			if (!desiredListIds.has(entry.listId)) {
+				await ctx.db.delete(entry._id);
+				continue;
+			}
+			existingMembership.add(entry.listId);
+		}
+
+		for (const listId of desiredListIds) {
+			if (existingMembership.has(listId)) {
+				continue;
+			}
+			const lastEntry = await ctx.db
+				.query("place_list_entries")
+				.withIndex("by_list_and_position", (q) => q.eq("listId", listId))
+				.order("desc")
+				.first();
+			const position = (lastEntry?.position ?? 0) + 1;
+			await ctx.db.insert("place_list_entries", {
+				listId,
+				savedPlaceId: args.savedPlaceId,
+				placeId: savedPlace.placeId,
+				position,
+			});
+		}
+
+		return null;
 	},
 });
