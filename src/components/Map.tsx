@@ -26,9 +26,13 @@ type MapComponentProps = {
 };
 
 type MarkerFeatureProperties = {
-	markerData: MapMarker;
-	isHighlighted: boolean;
-	isSaved: boolean;
+	placeId: MapMarker["placeId"];
+	providerPlaceId: MapMarker["providerPlaceId"];
+	name: MapMarker["name"];
+	latitude: MapMarker["latitude"];
+	longitude: MapMarker["longitude"];
+	isHighlighted: MapMarker["isHighlighted"];
+	isSaved: MapMarker["isSaved"];
 };
 
 type MapEventWithTarget = {
@@ -190,10 +194,16 @@ export default function MapComponent({
 			return;
 		}
 		const properties = firstFeature.properties as MarkerFeatureProperties;
-		const marker = properties.markerData;
-		if (marker) {
-			onMarkerSelectRef.current?.(marker);
-		}
+		const marker: MapMarker = {
+			placeId: properties.placeId,
+			providerPlaceId: properties.providerPlaceId,
+			name: properties.name,
+			latitude: properties.latitude,
+			longitude: properties.longitude,
+			isSaved: properties.isSaved,
+			isHighlighted: properties.isHighlighted,
+		};
+		onMarkerSelectRef.current?.(marker);
 	}, []);
 
 	const handleMouseMove = useCallback((event: MapMouseEvent) => {
@@ -388,11 +398,15 @@ export default function MapComponent({
 					type: "Point",
 					coordinates: [marker.longitude, marker.latitude],
 				},
-				properties: {
-					markerData: marker,
-					isHighlighted: marker.isHighlighted,
-					isSaved: marker.isSaved,
-				},
+					properties: {
+						placeId: marker.placeId,
+						providerPlaceId: marker.providerPlaceId,
+						name: marker.name,
+						latitude: marker.latitude,
+						longitude: marker.longitude,
+						isHighlighted: marker.isHighlighted,
+						isSaved: marker.isSaved,
+					},
 			})),
 		}),
 		[markers]
