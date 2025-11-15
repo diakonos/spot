@@ -132,11 +132,21 @@ function RouteComponent() {
 					{highlight && (
 						<div className="flex items-center justify-between gap-3 rounded-lg bg-white/90 px-3 py-2 text-slate-700 shadow-lg backdrop-blur">
 							<div className="min-w-0">
-								<p className="truncate font-semibold text-sm">
-									{highlight.name ?? "Highlighted place"}
-								</p>
+								{highlight.providerPlaceId ? (
+									<Link
+										className="truncate font-semibold text-sm text-primary hover:underline"
+										params={{ placeid: highlight.providerPlaceId }}
+										to="/app/place/$placeid"
+									>
+										{highlight.name?.trim() || "Highlighted place"}
+									</Link>
+								) : (
+									<p className="truncate font-semibold text-sm">
+										{highlight.name?.trim() || "Highlighted place"}
+									</p>
+								)}
 								<p className="truncate text-muted-foreground text-xs">
-									{highlight.providerPlaceId}
+									{highlight.name ? "View details" : highlight.providerPlaceId}
 								</p>
 							</div>
 							<button
