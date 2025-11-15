@@ -23,7 +23,7 @@ function UsernameProfileRoute() {
 	if (profileData === undefined) {
 		return (
 			<PageContainer>
-				<PageNav backLink="/" title={`@${username}`} />
+				<PageNav title={`@${username}`} />
 				<div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-10 px-6 pt-10 text-center">
 					<div className="flex size-24 items-center justify-center rounded-full border border-black/20 bg-black/10 font-bold text-4xl uppercase tracking-widest" />
 				</div>
@@ -38,7 +38,7 @@ function UsernameProfileRoute() {
 	if (!profileData) {
 		return (
 			<PageContainer>
-				<PageNav backLink="/" title={`@${username}`} />
+				<PageNav title={`@${username}`} />
 				<div className="space-y-2 pt-10 text-center">
 					<h1 className="font-semibold text-4xl">Profile not found</h1>
 					<p className="text-muted-foreground">
@@ -55,14 +55,13 @@ function UsernameProfileRoute() {
 
 	return (
 		<PageContainer>
-			<PageNav backLink="/" title={`@${user.username}`} />
+			<PageNav title={`@${user.username}`} />
 			<div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-10 px-6 pt-10 text-center">
 				<div className="flex size-24 items-center justify-center rounded-full border border-black/20 bg-black/10 font-bold text-4xl uppercase tracking-widest">
 					{initials}
 				</div>
 				<div className="space-y-2">
 					<h1 className="font-semibold text-4xl">{displayName}</h1>
-					<p className="text-muted-foreground">@{user.username}</p>
 				</div>
 				<div className="flex w-full max-w-sm flex-col gap-3 sm:flex-row">
 					<Link className="flex-1" params={{ username }} to="/$username/lists">

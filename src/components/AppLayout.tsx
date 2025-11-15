@@ -29,17 +29,17 @@ export function AppLayout() {
 		}
 	}, [user, profile, isLoading, isOnboardingRoute, navigate]);
 
-	if (user && isOnboardingRoute) {
-		return <Outlet />;
-	}
+	// if (user && isOnboardingRoute) {
+	// 	return <Outlet />;
+	// }
 
-	if (user && (isLoading || profile === null)) {
-		return (
-			<div className="flex min-h-screen items-center justify-center">
-				<p className="text-muted-foreground">Loading your workspace…</p>
-			</div>
-		);
-	}
+	// if (user && (isLoading || profile === null)) {
+	// 	return (
+	// 		<div className="flex min-h-screen items-center justify-center">
+	// 			<p className="text-muted-foreground">Loading your workspace…</p>
+	// 		</div>
+	// 	);
+	// }
 
 	return <Outlet />;
 }

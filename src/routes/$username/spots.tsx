@@ -1,18 +1,13 @@
-import {
-	createFileRoute,
-	Link,
-	useCanGoBack,
-	useNavigate,
-	useRouter,
-} from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { usePaginatedQuery } from "convex/react";
-import { motion } from "framer-motion";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { PageContainer } from "@/components/PageContainer";
 import { PageNav } from "@/components/PageNav";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMapViewState } from "@/context/MapViewContext";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
+import { cardClassNames } from "@/lib/ui";
 import { api } from "../../../convex/_generated/api";
 
 export const Route = createFileRoute("/$username/spots")({
@@ -23,12 +18,9 @@ function RouteComponent() {
 	const { username } = Route.useParams();
 	const { user } = useAuth();
 	const { profile, isLoading: profileLoading } = useCurrentProfile();
-	const isOwner = !!profile?.username && profile.username === username;
-
 	const navigate = useNavigate();
-	const router = useRouter();
-	const canGoBack = useCanGoBack();
 
+	const isOwner = !!profile?.username && profile.username === username;
 	const backLink = "/$username";
 	const backLinkParams = { username };
 
@@ -42,14 +34,14 @@ function RouteComponent() {
 		{ initialNumItems: 10 }
 	);
 	const { setHighlight } = useMapViewState();
-	const initialLoading = isOwner && savedPlaces === undefined;
+	const initialLoading = status === "LoadingFirstPage";
 	const showLoadMore =
 		!!savedPlaces &&
 		savedPlaces.length > 0 &&
 		(status === "CanLoadMore" || status === "LoadingMore");
 	const loadingMore = status === "LoadingMore";
 
-	if (!isOwner) {
+	if (!(isOwner || profileLoading)) {
 		return (
 			<PageContainer>
 				<PageNav
@@ -77,41 +69,28 @@ function RouteComponent() {
 	}
 
 	return (
-		<motion.div
-			className="h-screen w-full bg-primary text-white"
-			layoutId="my-spots"
-		>
-			<div className="sticky top-0 z-10 flex items-center gap-4 px-4 py-3 backdrop-blur-sm">
-				<button
-					aria-label="Go back"
-					className="flex items-center justify-center rounded-full p-2 text-white transition-colors hover:bg-blue-600"
-					onClick={() =>
-						canGoBack
-							? router.history.back()
-							: navigate({ to: backLink, params: backLinkParams })
-					}
-					type="button"
-				>
-					<ArrowLeft className="h-5 w-5" />
-				</button>
-				<p className="font-semibold text-lg text-white">My Spots</p>
-			</div>
+		<PageContainer>
+			<PageNav title={isOwner ? "My Spots" : `${username}'s Spots`} />
 
-			<div className="px-4 py-6">
+			<div className="px-4">
 				{initialLoading && (
-					<div className="py-8 text-center text-white/80">
-						Loading your spots...
+					<div className="space-y-3">
+						<Skeleton className="h-30 w-full" />
+						<Skeleton className="h-30 w-full" />
+						<Skeleton className="h-30 w-full" />
 					</div>
 				)}
 
-				{savedPlaces !== undefined && savedPlaces.length === 0 && (
-					<div className="py-8 text-center text-white/80">
-						<p className="mb-2 font-semibold text-lg">No saved spots yet</p>
-						<p className="text-sm">
-							Start exploring and save your favorite places!
-						</p>
-					</div>
-				)}
+				{!initialLoading &&
+					savedPlaces !== undefined &&
+					savedPlaces.length === 0 && (
+						<div className="py-8 text-center">
+							<p className="mb-2 font-semibold text-lg">No saved spots yet</p>
+							<p className="text-sm">
+								Start exploring and save your favorite places!
+							</p>
+						</div>
+					)}
 
 				{savedPlaces !== undefined && savedPlaces.length > 0 && (
 					<ul className="space-y-3">
@@ -133,16 +112,12 @@ function RouteComponent() {
 										params={{ placeid: place.providerPlaceId }}
 										to="/app/place/$placeid"
 									>
-										<motion.div
-											className="cursor-pointer rounded-lg border border-white/20 bg-white/10 p-4 text-left backdrop-blur-sm transition-all hover:bg-white/20"
-											whileHover={{ scale: 1.02 }}
-											whileTap={{ scale: 0.98 }}
+										<div
+											className={cardClassNames("cursor-pointer p-4 text-left")}
 										>
-											<div className="font-semibold text-lg text-white">
-												{place.name}
-											</div>
+											<div className="font-semibold text-lg">{place.name}</div>
 											{place.formattedAddress && (
-												<div className="mt-2 flex items-start gap-2 text-white/80">
+												<div className="mt-2 flex items-start gap-2">
 													<MapPin className="mt-0.5 h-4 w-4 shrink-0" />
 													<span className="text-sm">
 														{place.formattedAddress}
@@ -151,13 +126,13 @@ function RouteComponent() {
 											)}
 											{place.rating !== undefined && (
 												<div className="mt-2 flex items-center gap-2">
-													<span className="font-semibold text-white">
+													<span className="font-semibold">
 														{place.rating.toFixed(1)}
 													</span>
-													<span className="text-white/80">⭐</span>
+													<span className="">⭐</span>
 												</div>
 											)}
-										</motion.div>
+										</div>
 									</Link>
 								</li>
 							);
@@ -167,7 +142,7 @@ function RouteComponent() {
 				{showLoadMore && (
 					<div className="mt-6 text-center">
 						<button
-							className="rounded-full border border-white/30 px-4 py-2 font-semibold text-sm text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+							className="rounded-full border border-white/30 px-4 py-2 font-semibold text-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
 							disabled={status !== "CanLoadMore"}
 							onClick={() => {
 								loadMore(10);
@@ -179,6 +154,6 @@ function RouteComponent() {
 					</div>
 				)}
 			</div>
-		</motion.div>
+		</PageContainer>
 	);
 }
