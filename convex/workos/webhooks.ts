@@ -28,10 +28,11 @@ http.route({
 		}
 
 		try {
+			const rawBody = await req.text();
 			// Verify and construct event using WorkOS SDK
 			const workos = new WorkOS(workosApiKey);
 			const event = await workos.webhooks.constructEvent({
-				payload: await req.json(),
+				payload: rawBody,
 				sigHeader: signature,
 				secret: workosWebhookSecret,
 			});
