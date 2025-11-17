@@ -17,6 +17,49 @@ import { convertPlaceToPlaceDetailsResponse } from "./fn/places";
 import { authedMutation, authedQuery } from "./functions";
 
 /**
+ * Helper function to extract country information from address components.
+ * Returns null if country cannot be determined.
+ */
+function extractCountryFromAddressComponents(
+	addressComponents?: Array<{
+		longText: string;
+		shortText?: string;
+		types: string[];
+		languageCode?: string;
+	}>
+): { countryCode: string; countryName: string } | null {
+	if (!addressComponents || addressComponents.length === 0) {
+		return null;
+	}
+
+	// Find the component with "country" type
+	const countryComponent = addressComponents.find((component) =>
+		component.types.includes("country")
+	);
+
+	if (!countryComponent) {
+		return null;
+	}
+
+	const countryCode = countryComponent.shortText || countryComponent.longText;
+	const countryName = countryComponent.longText;
+
+	return { countryCode, countryName };
+}
+
+/**
+ * Helper function to create a URL-friendly slug from country name.
+ */
+function slugifyCountry(countryName: string): string {
+	return countryName
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-+|-+$/g, "");
+}
+
+/**
  * Internal mutation to upsert a place in the database.
  * Called by actions after fetching place details from Google.
  */
@@ -489,5 +532,194 @@ export const unsaveSavedPlace = authedMutation({
 
 		await ctx.db.delete(args.savedPlaceId);
 		return null;
+	},
+});
+
+/**
+ * Query to list all countries where the user has saved places.
+ * Only returns data if the viewer is the profile owner.
+ */
+export const listSavedCountriesForUser = query({
+	args: {
+		username: v.string(),
+	},
+	returns: v.union(
+		v.null(),
+		v.array(
+			v.object({
+				countryCode: v.string(),
+				countryName: v.string(),
+				slug: v.string(),
+				count: v.number(),
+			})
+		)
+	),
+	handler: async (ctx, args) => {
+		// Get the profile user
+		const normalized = args.username.toLowerCase().trim();
+		const user = await ctx.db
+			.query("users")
+			.withIndex("by_username", (q) => q.eq("username", normalized))
+			.unique();
+
+		if (!user) {
+			return null;
+		}
+
+		// Check if viewer is the owner
+		const identity = await ctx.auth.getUserIdentity();
+		if (!identity) {
+			return null;
+		}
+
+		const viewer = await ctx.db
+			.query("users")
+			.withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
+			.first();
+
+		if (!viewer || viewer._id !== user._id) {
+			return null;
+		}
+
+		// Get all saved places for the user
+		const savedPlaces = await ctx.db
+			.query("saved_places")
+			.withIndex("by_user", (q) => q.eq("userId", user._id))
+			.collect();
+
+		// Group by country
+		const countryMap = new Map<
+			string,
+			{ countryCode: string; countryName: string; count: number }
+		>();
+
+		for (const savedPlace of savedPlaces) {
+			const place = await ctx.db.get(savedPlace.placeId);
+			if (!place?.addressComponents) {
+				continue;
+			}
+
+			const countryInfo = extractCountryFromAddressComponents(
+				place.addressComponents
+			);
+			if (!countryInfo) {
+				continue;
+			}
+
+			const key = countryInfo.countryCode;
+			const existing = countryMap.get(key);
+			if (existing) {
+				existing.count += 1;
+			} else {
+				countryMap.set(key, {
+					countryCode: countryInfo.countryCode,
+					countryName: countryInfo.countryName,
+					count: 1,
+				});
+			}
+		}
+
+		// Convert to array and add slugs
+		return Array.from(countryMap.values())
+			.map((country) => ({
+				...country,
+				slug: slugifyCountry(country.countryName),
+			}))
+			.sort((a, b) => a.countryName.localeCompare(b.countryName));
+	},
+});
+
+/**
+ * Query to list all saved places for a user in a specific country.
+ * Only returns data if the viewer is the profile owner.
+ */
+export const listSavedPlacesByCountry = query({
+	args: {
+		username: v.string(),
+		countrySlug: v.string(),
+	},
+	returns: v.union(
+		v.null(),
+		v.array(
+			v.object({
+				_id: v.id("places"),
+				name: v.string(),
+				primaryType: v.optional(v.string()),
+				formattedAddress: v.optional(v.string()),
+				location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+				providerPlaceId: v.string(),
+			})
+		)
+	),
+	handler: async (ctx, args) => {
+		// Get the profile user
+		const normalized = args.username.toLowerCase().trim();
+		const user = await ctx.db
+			.query("users")
+			.withIndex("by_username", (q) => q.eq("username", normalized))
+			.unique();
+
+		if (!user) {
+			return null;
+		}
+
+		// Check if viewer is the owner
+		const identity = await ctx.auth.getUserIdentity();
+		if (!identity) {
+			return null;
+		}
+
+		const viewer = await ctx.db
+			.query("users")
+			.withIndex("by_workos_id", (q) => q.eq("workosId", identity.subject))
+			.first();
+
+		if (!viewer || viewer._id !== user._id) {
+			return null;
+		}
+
+		// Get all saved places for the user
+		const savedPlaces = await ctx.db
+			.query("saved_places")
+			.withIndex("by_user", (q) => q.eq("userId", user._id))
+			.collect();
+
+		// Filter places by country slug
+		const matchingPlaces: Array<{
+			_id: Id<"places">;
+			name: string;
+			primaryType: string | undefined;
+			formattedAddress: string | undefined;
+			location: { lat: number; lng: number } | undefined;
+			providerPlaceId: string;
+		}> = [];
+
+		for (const savedPlace of savedPlaces) {
+			const place = await ctx.db.get(savedPlace.placeId);
+			if (!place?.addressComponents) {
+				continue;
+			}
+
+			const countryInfo = extractCountryFromAddressComponents(
+				place.addressComponents
+			);
+			if (!countryInfo) {
+				continue;
+			}
+
+			const slug = slugifyCountry(countryInfo.countryName);
+			if (slug === args.countrySlug) {
+				matchingPlaces.push({
+					_id: place._id,
+					name: place.name,
+					primaryType: place.primaryType,
+					formattedAddress: place.formattedAddress,
+					location: place.location,
+					providerPlaceId: place.providerPlaceId,
+				});
+			}
+		}
+
+		return matchingPlaces;
 	},
 });

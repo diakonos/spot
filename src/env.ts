@@ -10,6 +10,10 @@ export const env = createEnv({
 		WORKOS_CLIENT_ID: z.string(),
 		WORKOS_WEBHOOK_SECRET: z.string(),
 		WORKOS_COOKIE_PASSWORD: z.string(),
+		OPENROUTER_API_KEY: z.string().min(1),
+		OPENROUTER_MODEL: z.string().min(1).optional(),
+		RESEND_API_KEY: z.string().min(1),
+		RESEND_FROM_EMAIL: z.string().email(),
 	},
 
 	/**

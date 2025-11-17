@@ -39,6 +39,9 @@
           }
         }
       },
+      "performance": {
+        "noNamespaceImport": "off"
+      },
       "style": {
         "noMagicNumbers": "off"
       }

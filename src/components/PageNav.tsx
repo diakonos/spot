@@ -11,7 +11,7 @@ export type PageNavProps = {
 	backLink?: LinkProps["to"];
 	backLinkParams?: LinkProps["params"];
 	onBack?: () => void | Promise<void>;
-	title?: string;
+	title?: string | React.ReactNode;
 	rightButton?: React.ReactNode;
 };
 
