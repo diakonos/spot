@@ -2,12 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { useQuery as useConvexQuery, useMutation } from "convex/react";
-import { Bookmark, ExternalLink, Globe, MapPin, Phone, ShareIcon } from "lucide-react";
+import {
+	Bookmark,
+	ExternalLink,
+	Globe,
+	MapPin,
+	Phone,
+	ShareIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/Button";
 import { PageContainer } from "@/components/PageContainer";
 import { PageNav } from "@/components/PageNav";
-import { Button } from "@/components/Button";
 import { SavePlaceDialog } from "@/components/save-place-dialog";
 import {
 	Carousel,
@@ -19,12 +26,13 @@ import {
 import { useMapViewState } from "@/context/MapViewContext";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { useSystemShare } from "@/hooks/useSystemShare";
+import { createLogger } from "@/lib/logger";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { inferProviderFromPlaceId } from "../../../../shared/places";
 import { getPlaceDetails } from "../../../integrations/google/client";
 import type { PlaceDetailsResponse } from "../../../integrations/google/types";
 import { QUERY_STALE_TIME_MS } from "../../../lib/networking";
-import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("PlaceDetailsRoute");
 
@@ -65,6 +73,7 @@ function PlaceDetailsComponent() {
 	const { user } = useAuth();
 	const { profile } = useCurrentProfile();
 	const { placeid } = Route.useParams();
+	const provider = placeid ? inferProviderFromPlaceId(placeid) : "google";
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [isEnsuringSaved, setIsEnsuringSaved] = useState(false);
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -105,7 +114,7 @@ function PlaceDetailsComponent() {
 			}
 			return await getPlaceDetails(placeid);
 		},
-		enabled: convexPlaceData === null && !!placeid,
+		enabled: convexPlaceData === null && !!placeid && provider === "google",
 		staleTime: QUERY_STALE_TIME_MS,
 	});
 
@@ -165,11 +174,15 @@ function PlaceDetailsComponent() {
 			return null;
 		}
 		return {
+			provider,
 			providerPlaceId: placeid,
 			name: finalPlaceDetails.name,
 			formattedAddress: finalPlaceDetails.formatted_address,
 			location: finalPlaceDetails.location,
 			rating: finalPlaceDetails.rating,
+			phone: finalPlaceDetails.phone,
+			website: finalPlaceDetails.website,
+			googleMapsUri: finalPlaceDetails.google_maps_uri,
 		};
 	};
 
@@ -215,7 +228,11 @@ function PlaceDetailsComponent() {
 		}
 	};
 	const shareButton = finalPlaceDetails ? (
-		<Button className="hover:bg-slate-200" onClick={handleSharePlace} variant="ghost">
+		<Button
+			className="hover:bg-slate-200"
+			onClick={handleSharePlace}
+			variant="ghost"
+		>
 			<ShareIcon className="size-4" />
 			Share
 		</Button>
@@ -269,6 +286,13 @@ function PlaceDetailsComponent() {
 				.filter((photo): photo is ResolvedPlacePhoto => photo !== null),
 		[photoItems]
 	);
+	const fallbackGoogleMapsUrl = finalPlaceDetails?.formatted_address
+		? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+				finalPlaceDetails.formatted_address
+			)}`
+		: null;
+	const googleMapsUrl =
+		finalPlaceDetails?.google_maps_uri ?? fallbackGoogleMapsUrl;
 
 	return (
 		<PageContainer>
@@ -392,10 +416,10 @@ function PlaceDetailsComponent() {
 						)}
 
 						{/* Google Maps Link */}
-						{finalPlaceDetails.google_maps_uri && (
+						{googleMapsUrl && (
 							<a
 								className="flex items-center justify-center gap-2 rounded-lg border bg-background px-4 py-3 transition-colors hover:bg-muted"
-								href={finalPlaceDetails.google_maps_uri}
+								href={googleMapsUrl}
 								rel="noopener noreferrer"
 								target="_blank"
 							>

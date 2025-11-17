@@ -6,9 +6,12 @@ import {
 import { useAction, useMutation } from "convex/react";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { createLogger } from "@/lib/logger";
+
 import { api } from "../../../../convex/_generated/api";
+import { MANUAL_PLACE_PREFIX } from "../../../../shared/places";
 import { Button } from "../../../components/ui/button";
 import {
 	Dialog,
@@ -219,13 +222,14 @@ function AlternativePlace({ place }: { place: PlaceDetailsResponse }) {
 function ManualPlaceEntryComponent() {
 	const navigate = useNavigate();
 	const search = useSearch({ from: "/app/place/manual" });
-	const crawlUrlToPlace = useAction(api.crawl.firecrawlUrlToPlace);
+	const crawlUrlToPlace = useAction(api.crawl.crawlUrlToplace);
 	const savePlace = useMutation(api.places.savePlaceForCurrentUser);
 	const { location: userLocation } = useUserLocation();
 
 	const [loadingState, setLoadingState] = useState<LoadingState>("idle");
 	const [error, setError] = useState<string | null>(null);
 	const sessionToken = useRef(crypto.randomUUID());
+	const manualPlaceIdRef = useRef<string | null>(null);
 	const [formData, setFormData] = useState<FormData>(createEmptyFormData());
 	const [autocompleteResults, setAutocompleteResults] = useState<
 		PlaceDetailsResponse[]
@@ -245,6 +249,13 @@ function ManualPlaceEntryComponent() {
 		};
 	}, [userLocation]);
 
+	const ensureManualPlaceId = () => {
+		if (!manualPlaceIdRef.current) {
+			manualPlaceIdRef.current = `${MANUAL_PLACE_PREFIX}${crypto.randomUUID()}`;
+		}
+		return manualPlaceIdRef.current;
+	};
+
 	// Progressive loading effect
 	useEffect(() => {
 		if (!search.url) {
@@ -254,7 +265,9 @@ function ManualPlaceEntryComponent() {
 
 		let mounted = true;
 		setSelectedPlaceId(null);
+		manualPlaceIdRef.current = null;
 
+		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This orchestrates the staged scraping + autocomplete handoff and will be revisited separately.
 		const loadPlaceData = async () => {
 			try {
 				// Step 1: Crawl URL
@@ -305,6 +318,7 @@ function ManualPlaceEntryComponent() {
 							if (details[0]) {
 								setFormData(placeDetailsToFormData(details[0]));
 								setSelectedPlaceId(details[0].id);
+								manualPlaceIdRef.current = null;
 							} else {
 								setSelectedPlaceId(null);
 							}
@@ -346,6 +360,7 @@ function ManualPlaceEntryComponent() {
 	const handleSelectAlternative = (place: PlaceDetailsResponse) => {
 		setFormData(placeDetailsToFormData(place));
 		setSelectedPlaceId(place.id);
+		manualPlaceIdRef.current = null;
 		setSaveError(null);
 		setShowAlternativesDialog(false);
 	};
@@ -360,11 +375,6 @@ function ManualPlaceEntryComponent() {
 			return;
 		}
 
-		if (!selectedPlaceId) {
-			setSaveError("Select a Google place result before saving.");
-			return;
-		}
-
 		if (isSaving) {
 			return;
 		}
@@ -373,17 +383,21 @@ function ManualPlaceEntryComponent() {
 		setIsSaving(true);
 
 		try {
-			const providerPlaceId = selectedPlaceId;
+			const provider = selectedPlaceId ? "google" : "manual";
+			const providerPlaceId = selectedPlaceId ?? ensureManualPlaceId();
 			const lat = formData.lat.trim();
 			const lng = formData.lng.trim();
 			const rating = formData.rating.trim();
+			const phone = formData.phone.trim();
+			const website = formData.website.trim();
+			const googleMapsUri = formData.google_maps_uri.trim();
+			const formattedAddress = formData.formatted_address.trim();
 
 			await savePlace({
+				provider,
 				providerPlaceId,
 				name: formData.name.trim(),
-				formattedAddress: formData.formatted_address.trim()
-					? formData.formatted_address.trim()
-					: undefined,
+				formattedAddress: formattedAddress || undefined,
 				location:
 					lat && lng
 						? {
@@ -392,6 +406,9 @@ function ManualPlaceEntryComponent() {
 							}
 						: undefined,
 				rating: rating ? Number.parseFloat(rating) : undefined,
+				phone: phone || undefined,
+				website: website || undefined,
+				googleMapsUri: googleMapsUri || undefined,
 			});
 
 			navigate({

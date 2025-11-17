@@ -3,6 +3,7 @@ import {
 	paginationResultValidator,
 } from "convex/server";
 import { v } from "convex/values";
+import { inferProviderFromPlaceId } from "../shared/places";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -256,10 +257,11 @@ export const getPlaceByProviderId = internalQuery({
 		})
 	),
 	handler: async (ctx, { providerPlaceId }) => {
+		const provider = inferProviderFromPlaceId(providerPlaceId);
 		const place = await ctx.db
 			.query("places")
 			.withIndex("by_provider_id", (q) =>
-				q.eq("provider", "google").eq("providerPlaceId", providerPlaceId)
+				q.eq("provider", provider).eq("providerPlaceId", providerPlaceId)
 			)
 			.first();
 
@@ -310,11 +312,12 @@ export const getPlaceDetailsWithSaveStatus = query({
 		})
 	),
 	handler: async (ctx, { providerPlaceId }) => {
+		const provider = inferProviderFromPlaceId(providerPlaceId);
 		// Get the place from database
 		const place = await ctx.db
 			.query("places")
 			.withIndex("by_provider_id", (q) =>
-				q.eq("provider", "google").eq("providerPlaceId", providerPlaceId)
+				q.eq("provider", provider).eq("providerPlaceId", providerPlaceId)
 			)
 			.first();
 
@@ -368,6 +371,7 @@ export const getPlaceDetailsWithSaveStatus = query({
 export const savePlaceForCurrentUser = authedMutation({
 	args: {
 		// Place data from Google API (may be partial)
+		provider: v.optional(v.union(v.literal("google"), v.literal("manual"))),
 		providerPlaceId: v.string(),
 		name: v.string(),
 		displayName: v.optional(
@@ -376,6 +380,9 @@ export const savePlaceForCurrentUser = authedMutation({
 		formattedAddress: v.optional(v.string()),
 		location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
 		rating: v.optional(v.number()),
+		phone: v.optional(v.string()),
+		website: v.optional(v.string()),
+		googleMapsUri: v.optional(v.string()),
 		// User-specific data
 		tags: v.optional(v.array(v.string())),
 		myRating: v.optional(v.number()),
@@ -398,11 +405,14 @@ export const savePlaceForCurrentUser = authedMutation({
 			throw new Error("User not found");
 		}
 
+		const provider =
+			args.provider ?? inferProviderFromPlaceId(args.providerPlaceId);
+
 		// Check if place exists, if not create it
 		const existingPlace = await ctx.db
 			.query("places")
 			.withIndex("by_provider_id", (q) =>
-				q.eq("provider", "google").eq("providerPlaceId", args.providerPlaceId)
+				q.eq("provider", provider).eq("providerPlaceId", args.providerPlaceId)
 			)
 			.first();
 
@@ -412,21 +422,26 @@ export const savePlaceForCurrentUser = authedMutation({
 		} else {
 			// Create place with provided data
 			const placeData = {
-				provider: "google" as const,
+				provider,
 				providerPlaceId: args.providerPlaceId,
 				name: args.name,
 				displayName: args.displayName,
 				formattedAddress: args.formattedAddress,
 				location: args.location,
 				rating: args.rating,
+				internationalPhoneNumber: args.phone,
+				websiteUri: args.website,
+				googleMapsUri: args.googleMapsUri,
 				lastSyncedAt: Date.now(),
 			};
 			placeId = await ctx.db.insert("places", placeData);
 
 			// Schedule background action to fetch canonical data from Google
-			await ctx.scheduler.runAfter(0, internal.places.syncPlaceFromGoogle, {
-				providerPlaceId: args.providerPlaceId,
-			});
+			if (provider === "google") {
+				await ctx.scheduler.runAfter(0, internal.places.syncPlaceFromGoogle, {
+					providerPlaceId: args.providerPlaceId,
+				});
+			}
 		}
 
 		await syncPlaceToGeospatial(ctx, placeId);
