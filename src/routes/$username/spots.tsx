@@ -74,7 +74,7 @@ function RouteComponent() {
 
 			<div className="px-4">
 				{initialLoading && (
-					<div className="space-y-3">
+					<div className="mx-auto max-w-xl space-y-3">
 						<Skeleton className="h-30 w-full" />
 						<Skeleton className="h-30 w-full" />
 						<Skeleton className="h-30 w-full" />
@@ -93,7 +93,7 @@ function RouteComponent() {
 					)}
 
 				{savedPlaces !== undefined && savedPlaces.length > 0 && (
-					<ul className="space-y-3">
+					<ul className="mx-auto max-w-xl space-y-3">
 						{savedPlaces.map(({ save, place }) => {
 							if (!place) {
 								return null;

@@ -131,7 +131,7 @@ function ListDetailRoute() {
 			/>
 			<div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6">
 				{isLoading && (
-					<div className="space-y-4">
+					<div className="mx-auto max-w-xl space-y-4">
 						<Skeleton className="h-25 w-full" />
 						<Skeleton className="h-25 w-full" />
 						<Skeleton className="h-25 w-full" />
@@ -139,7 +139,7 @@ function ListDetailRoute() {
 				)}
 
 				{listData && listData.entries.length !== 0 ? (
-					<ul className="grid gap-4 sm:grid-cols-2">
+					<ul className="mx-auto grid max-w-xl gap-4">
 						{listData.entries.map((entry) => {
 							if (!entry.place) {
 								return null;

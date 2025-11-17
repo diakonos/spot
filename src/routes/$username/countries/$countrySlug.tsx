@@ -139,7 +139,7 @@ function CountryPlacesRoute() {
 
 			<div className="px-4">
 				{places === undefined ? (
-					<div className="space-y-3">
+					<div className="mx-auto max-w-xl space-y-3">
 						<Skeleton className="h-30 w-full" />
 						<Skeleton className="h-30 w-full" />
 						<Skeleton className="h-30 w-full" />
@@ -266,7 +266,7 @@ function CountryPlacesRoute() {
 							</div>
 						)}
 
-						<ul className="space-y-3 pb-4">
+						<ul className="mx-auto max-w-xl space-y-3 pb-4">
 							{places.map((place) => (
 								<li key={place._id}>
 									<Link
