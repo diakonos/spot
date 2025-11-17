@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery as useConvexQuery } from "convex/react";
+import { useQuery as useConvexQuery, useMutation } from "convex/react";
 import { motion } from "framer-motion";
-import { MapPin, ShareIcon } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { Globe, Lock, MapPin, ShareIcon } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/Button";
 import { PageContainer } from "@/components/PageContainer";
 import { PageNav } from "@/components/PageNav";
@@ -26,7 +26,9 @@ function ListDetailRoute() {
 		[slug, username]
 	);
 	const listData = useConvexQuery(api.lists.getListBySlugForProfile, listArgs);
+	const updateVisibility = useMutation(api.lists.updateListVisibility);
 	const shareList = useSystemShare();
+	const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 
 	const isLoading = slug && username && listData === undefined;
 	const backLink = username ? "/$username/lists" : "/";
@@ -48,6 +50,26 @@ function ListDetailRoute() {
 			logger.error("Failed to share list", result.error);
 		}
 	}, [listTitle, shareList]);
+
+	const handleToggleVisibility = useCallback(async () => {
+		if (!listData?.viewerIsOwner || isUpdatingVisibility) {
+			return;
+		}
+
+		const newVisibility =
+			listData.list.visibility === "public" ? "private" : "public";
+		setIsUpdatingVisibility(true);
+		try {
+			await updateVisibility({
+				listId: listData.list._id,
+				visibility: newVisibility,
+			});
+		} catch (err) {
+			logger.error("Failed to update list visibility", err);
+		} finally {
+			setIsUpdatingVisibility(false);
+		}
+	}, [listData, updateVisibility, isUpdatingVisibility]);
 
 	if (listData === null && !isLoading) {
 		return (
@@ -74,14 +96,35 @@ function ListDetailRoute() {
 				backLinkParams={backLinkParams}
 				rightButton={
 					listData ? (
-						<Button
-							className="hover:bg-slate-200"
-							onClick={handleShare}
-							variant="ghost"
-						>
-							<ShareIcon className="size-4" />
-							Share
-						</Button>
+						<div className="flex items-center gap-2">
+							{listData.viewerIsOwner && (
+								<Button
+									className="hover:bg-slate-200"
+									disabled={isUpdatingVisibility}
+									onClick={handleToggleVisibility}
+									variant="ghost"
+								>
+									{listData.list.visibility === "public" ? (
+										<Globe className="size-4" />
+									) : (
+										<Lock className="size-4" />
+									)}
+									<span className="ml-1.5">
+										{listData.list.visibility === "public"
+											? "Public"
+											: "Private"}
+									</span>
+								</Button>
+							)}
+							<Button
+								className="hover:bg-slate-200"
+								onClick={handleShare}
+								variant="ghost"
+							>
+								<ShareIcon className="size-4" />
+								Share
+							</Button>
+						</div>
 					) : undefined
 				}
 				title={listData?.list.name ?? "List"}

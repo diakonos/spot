@@ -9,6 +9,8 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -31,6 +33,7 @@ export function CreateListDialog({
 	const createList = useMutation(api.lists.createList);
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
+	const [isPublic, setIsPublic] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,6 +41,7 @@ export function CreateListDialog({
 		if (!open) {
 			setName("");
 			setDescription("");
+			setIsPublic(false);
 			setError(null);
 			setIsSubmitting(false);
 		}
@@ -57,6 +61,7 @@ export function CreateListDialog({
 			const listId = await createList({
 				name: trimmedName,
 				description: trimmedDescription ? trimmedDescription : undefined,
+				visibility: isPublic ? "public" : "private",
 			});
 			onSuccess?.({
 				listId,
@@ -103,6 +108,21 @@ export function CreateListDialog({
 							onChange={(event) => setDescription(event.target.value)}
 							placeholder="Add some details about this list"
 							value={description}
+						/>
+					</div>
+					<div className="flex items-center justify-between rounded-lg border p-4">
+						<div className="space-y-0.5">
+							<Label className="font-medium text-sm" htmlFor="list-visibility">
+								Public list
+							</Label>
+							<p className="text-muted-foreground text-xs">
+								Anyone can view this list
+							</p>
+						</div>
+						<Switch
+							checked={isPublic}
+							id="list-visibility"
+							onCheckedChange={setIsPublic}
 						/>
 					</div>
 					{error && <p className="text-destructive text-sm">{error}</p>}

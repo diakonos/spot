@@ -519,3 +519,23 @@ export const setSavedPlaceLists = authedMutation({
 		return null;
 	},
 });
+
+export const updateListVisibility = authedMutation({
+	args: {
+		listId: v.id("place_lists"),
+		visibility: v.union(v.literal("private"), v.literal("public")),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const list = await ctx.db.get(args.listId);
+		if (!list || list.userId !== (ctx.userId as Id<"users">)) {
+			throw new Error("List not found");
+		}
+
+		await ctx.db.patch(args.listId, {
+			visibility: args.visibility,
+		});
+
+		return null;
+	},
+});

@@ -389,7 +389,10 @@ function PlaceDetailsComponent() {
 								>
 									<CarouselContent>
 										{resolvedPhotoItems.map((photo) => (
-											<CarouselItem key={photo.url}>
+											<CarouselItem
+												className="basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4"
+												key={photo.url}
+											>
 												<div className="overflow-hidden rounded-xl bg-muted">
 													<img
 														alt={`${finalPlaceDetails.name} scene`}

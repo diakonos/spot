@@ -226,7 +226,6 @@ function RouteComponent() {
 					<ChevronLeft className="h-6 w-6 text-foreground md:hidden" />
 					<span className="hidden items-center gap-2 md:flex">
 						<ChevronLeft className="h-5 w-5 text-foreground" />
-						<span className="font-medium text-sm">Back</span>
 					</span>
 				</button>
 				<div className="relative w-full max-w-md">
