@@ -183,7 +183,7 @@ export function SavePlaceDialog({
 				onOpenAutoFocus={(event) => event.preventDefault()}
 			>
 				<DialogHeader>
-					<DialogTitle>Saved!</DialogTitle>
+					<DialogTitle className="text-center">Saved!</DialogTitle>
 					<DialogDescription>
 						Optionally also save{" "}
 						{placeName ? <strong>{placeName}</strong> : "this place"} to a list.
