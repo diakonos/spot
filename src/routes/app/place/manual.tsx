@@ -414,6 +414,7 @@ function ManualPlaceEntryComponent() {
 			navigate({
 				to: "/app/place/$placeid",
 				params: { placeid: providerPlaceId },
+				replace: true,
 			});
 		} catch (err) {
 			setSaveError(
