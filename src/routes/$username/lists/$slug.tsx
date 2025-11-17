@@ -92,8 +92,6 @@ function ListDetailRoute() {
 	return (
 		<PageContainer>
 			<PageNav
-				backLink={backLink}
-				backLinkParams={backLinkParams}
 				rightButton={
 					listData ? (
 						<div className="flex items-center gap-2">

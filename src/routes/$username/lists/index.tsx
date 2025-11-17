@@ -70,8 +70,6 @@ function ListsRoute() {
 	return (
 		<PageContainer>
 			<PageNav
-				backLink="/$username"
-				backLinkParams={{ username }}
 				title={
 					viewerIsOwner ? "Your lists" : `${ownerName ?? username}'s lists`
 				}

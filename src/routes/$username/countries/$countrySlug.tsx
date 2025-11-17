@@ -123,8 +123,6 @@ function CountryPlacesRoute() {
 	return (
 		<PageContainer>
 			<PageNav
-				backLink={backLink}
-				backLinkParams={backLinkParams}
 				title={
 					countryCode ? (
 						<span className="flex items-center gap-2">
