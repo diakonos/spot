@@ -47,7 +47,11 @@ async def crawl_endpoint(
     logger.debug("Received crawl request", extra={"url": payload.url})
     try:
         result = await scraper.crawl(payload.url)
-        logger.debug("Returning crawl result", extra={"url": payload.url, "name": result.name})
+        # Avoid using reserved LogRecord attribute names like "name" in `extra`
+        logger.debug(
+            "Returning crawl result",
+            extra={"url": payload.url, "place_name": result.name},
+        )
         return result
     except ValueError as exc:
         logger.warning("Rejecting crawl request", extra={"url": payload.url, "error": str(exc)})
