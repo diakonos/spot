@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery as useConvexQuery } from "convex/react";
+import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { MailIcon, MapPin, Sparkles } from "lucide-react";
 import { useState } from "react";
 import Markdown from "react-markdown";
@@ -10,8 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { cardClassNames } from "@/lib/ui";
 import { getCountryFlagEmoji } from "@/lib/utils";
-import type { Place } from "@/serverFns/createItinerary";
-import { createItinerary } from "@/serverFns/createItinerary";
 import { emailItinerary } from "@/serverFns/emailItinerary";
 import { api } from "../../../../convex/_generated/api";
 
@@ -28,6 +26,8 @@ function CountryPlacesRoute() {
 	const [generateError, setGenerateError] = useState<string | null>(null);
 	const [emailError, setEmailError] = useState<string | null>(null);
 	const [emailSuccess, setEmailSuccess] = useState(false);
+
+	const createItineraryAction = useAction(api.itinerary.createItinerary);
 
 	const countries = useConvexQuery(
 		api.places.listSavedCountriesForUser,
@@ -61,18 +61,16 @@ function CountryPlacesRoute() {
 		setItinerary(null);
 
 		try {
-			const placesData: Place[] = places.map((place) => ({
+			const placesData = places.map((place) => ({
 				name: place.name,
 				primaryType: place.primaryType,
 				formattedAddress: place.formattedAddress,
 				location: place.location,
 			}));
 
-			const result = await createItinerary({
-				data: {
-					countryName,
-					places: placesData,
-				},
+			const result = await createItineraryAction({
+				countryName,
+				places: placesData,
 			});
 
 			setItinerary(result.itinerary);
@@ -193,7 +191,7 @@ function CountryPlacesRoute() {
 						)}
 
 						{itinerary && (
-							<div className="mb-6 space-y-4">
+							<div className="mx-auto mb-6 max-w-xl space-y-4">
 								<div className={cardClassNames("p-6")}>
 									<div className="mb-4 flex items-center justify-between">
 										<h2 className="font-semibold text-xl">

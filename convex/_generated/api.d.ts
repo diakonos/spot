@@ -16,6 +16,7 @@ import type * as functions from "../functions.js";
 import type * as geospatial from "../geospatial.js";
 import type * as google from "../google.js";
 import type * as http from "../http.js";
+import type * as itinerary from "../itinerary.js";
 import type * as lists from "../lists.js";
 import type * as map from "../map.js";
 import type * as places from "../places.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   geospatial: typeof geospatial;
   google: typeof google;
   http: typeof http;
+  itinerary: typeof itinerary;
   lists: typeof lists;
   map: typeof map;
   places: typeof places;
