@@ -85,3 +85,52 @@ export const firecrawlUrlToPlace = authedAction({
 		return response;
 	},
 });
+
+/**
+ * Crawl a URL and attempt to extract place-like information using the spot-scraper service.
+ * Returns a structure compatible with PlaceDetailsResponse from Google Places API.
+ */
+export const crawlUrlToplace = authedAction({
+	args: { url: v.string() },
+	handler: async (_ctx, { url }): Promise<Partial<PlaceDetailsResponse>> => {
+		// Validate URL format
+		let parsedUrl: URL;
+		try {
+			// Prepend https:// if missing protocol but starts with www.
+			const normalizedUrl = url.trim().startsWith("www.")
+				? `https://${url.trim()}`
+				: url.trim();
+			parsedUrl = new URL(normalizedUrl);
+		} catch (_error) {
+			throw new Error(`Invalid URL format: ${url}`);
+		}
+
+		const apiKey = process.env.SPOT_SCRAPER_API_KEY;
+		if (!apiKey) {
+			throw new Error("SPOT_SCRAPER_API_KEY environment variable is not set");
+		}
+
+		const response = await fetch(
+			"https://spot-scraper-t5orb.sevalla.app/crawl",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"x-api-key": apiKey,
+				},
+				body: JSON.stringify({ url: parsedUrl.toString() }),
+			}
+		);
+
+		if (!response.ok) {
+			throw new Error(
+				`Failed to crawl URL: ${response.status} ${response.statusText}`
+			);
+		}
+
+		const result = await response.json();
+		logger.debug("spot-scraper extracted data:", result);
+
+		return result as Partial<PlaceDetailsResponse>;
+	},
+});

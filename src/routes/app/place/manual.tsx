@@ -222,7 +222,7 @@ function AlternativePlace({ place }: { place: PlaceDetailsResponse }) {
 function ManualPlaceEntryComponent() {
 	const navigate = useNavigate();
 	const search = useSearch({ from: "/app/place/manual" });
-	const crawlUrlToPlace = useAction(api.crawl.firecrawlUrlToPlace);
+	const crawlUrlToPlace = useAction(api.crawl.crawlUrlToplace);
 	const savePlace = useMutation(api.places.savePlaceForCurrentUser);
 	const { location: userLocation } = useUserLocation();
 

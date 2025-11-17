@@ -164,14 +164,12 @@ function RouteComponent() {
 								transition={{ duration: 0.2, ease: "circInOut" }}
 							>
 								{!showLinkForm && (
-									<Button
-										className="w-full shadow-lg"
-										onClick={handleManualAdd}
-										variant="secondary"
-									>
-										<SearchIcon className="size-4" />
-										Add manually
-									</Button>
+									<Link search={{ url: undefined }} to="/app/place/manual">
+										<Button className="w-full shadow-lg" variant="secondary">
+											<PlusIcon className="size-4" />
+											Add manually
+										</Button>
+									</Link>
 								)}
 								<div
 									className={`rounded-3xl bg-white/90 shadow-xl backdrop-blur-sm transition-all ${showLinkForm ? "p-4" : "p-0"}`}
