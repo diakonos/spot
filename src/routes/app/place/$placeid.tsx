@@ -2,11 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import { useQuery as useConvexQuery, useMutation } from "convex/react";
-import { Bookmark, ExternalLink, Globe, MapPin, Phone } from "lucide-react";
+import { Bookmark, ExternalLink, Globe, MapPin, Phone, ShareIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageContainer } from "@/components/PageContainer";
 import { PageNav } from "@/components/PageNav";
+import { Button } from "@/components/Button";
 import { SavePlaceDialog } from "@/components/save-place-dialog";
 import {
 	Carousel,
@@ -17,11 +18,15 @@ import {
 } from "@/components/ui/carousel";
 import { useMapViewState } from "@/context/MapViewContext";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
+import { useSystemShare } from "@/hooks/useSystemShare";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { getPlaceDetails } from "../../../integrations/google/client";
 import type { PlaceDetailsResponse } from "../../../integrations/google/types";
 import { QUERY_STALE_TIME_MS } from "../../../lib/networking";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("PlaceDetailsRoute");
 
 const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
 const LEADING_SLASHES_REGEX = /^\/+/;
@@ -66,6 +71,7 @@ function PlaceDetailsComponent() {
 	const [localSavedPlaceId, setLocalSavedPlaceId] =
 		useState<Id<"saved_places"> | null>(null);
 	const { setHighlight } = useMapViewState();
+	const sharePlace = useSystemShare();
 
 	// Try to get place from Convex first
 	const convexPlaceData = useConvexQuery(
@@ -108,6 +114,21 @@ function PlaceDetailsComponent() {
 		convexPlaceData === undefined ||
 		(convexPlaceData === null && isLoadingGoogle);
 	const error = googleError;
+
+	const handleSharePlace = useCallback(async () => {
+		if (typeof window === "undefined" || !finalPlaceDetails) {
+			return;
+		}
+		const placeName = finalPlaceDetails.name ?? "Spot";
+		const result = await sharePlace({
+			url: window.location.href,
+			title: placeName,
+			text: `Check out ${placeName} on Spot.`,
+		});
+		if (!result.ok) {
+			logger.error("Failed to share place", result.error);
+		}
+	}, [finalPlaceDetails, sharePlace]);
 
 	useEffect(() => {
 		if (!finalPlaceDetails) {
@@ -193,9 +214,16 @@ function PlaceDetailsComponent() {
 			setIsDialogOpen(false);
 		}
 	};
-	let pageNavRightButton: ReactNode | null = null;
+	const shareButton = finalPlaceDetails ? (
+		<Button className="hover:bg-slate-200" onClick={handleSharePlace} variant="ghost">
+			<ShareIcon className="size-4" />
+			Share
+		</Button>
+	) : null;
+
+	let primaryActionButton: ReactNode | null = null;
 	if (placeid && user) {
-		pageNavRightButton = (
+		primaryActionButton = (
 			<button
 				aria-label="Save place"
 				className={`flex items-center gap-2 rounded-full border px-4 py-2 font-medium text-sm shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -212,7 +240,7 @@ function PlaceDetailsComponent() {
 			</button>
 		);
 	} else if (!user) {
-		pageNavRightButton = (
+		primaryActionButton = (
 			<Link
 				className="rounded-full border border-primary/40 bg-primary/5 px-4 py-2 text-primary text-sm"
 				to="/api/auth/login"
@@ -221,6 +249,14 @@ function PlaceDetailsComponent() {
 			</Link>
 		);
 	}
+
+	const pageNavRightButton =
+		shareButton || primaryActionButton ? (
+			<div className="flex items-center gap-2">
+				{shareButton}
+				{primaryActionButton}
+			</div>
+		) : null;
 	const photoItems =
 		finalPlaceDetails?.photos?.filter((photo) => Boolean(photo?.name)) ?? [];
 	const resolvedPhotoItems = useMemo<ResolvedPlacePhoto[]>(
